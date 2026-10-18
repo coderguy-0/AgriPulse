@@ -119,7 +119,7 @@ export async function generateAssistantReply(
       sourceCitations: doc.referencesAndSources.slice(0, 2),
       text: `[Plain-Language Overview: ${doc.diseaseName} in ${matchedDiseaseItem.crop}]\n• What It Is: ${doc.definition}\n• Causal Pathogen: ${doc.causalOrganism} (${matchedDiseaseItem.pathogenType})\n• How It Spreads: ${doc.modeOfTransmission}\n• Key Field Symptoms: ${doc.symptomsAndSigns}\n• Recommended IDM & Treatment: ${doc.integratedDiseaseManagement}\n• Resistant Varieties: ${doc.resistantVarieties}`,
       suggestedLinks: [
-        { label: 'Explore 100 Crop Diseases', route: '/disease' },
+        { label: 'Explore Crop Disease Library', route: '/disease' },
         { label: 'Browse Crop Protection Store', route: '/store' },
       ],
     };
@@ -189,7 +189,7 @@ export async function generateAssistantReply(
       suggestedLinks: [
         { label: 'Open Farm Workspace', route: '/farm' },
         { label: 'View Dashboard Calendar', route: '/home' },
-        { label: '100 Diseases Directory', route: '/disease' },
+        { label: 'Crop Diseases Directory', route: '/disease' },
       ],
     };
   }
@@ -231,9 +231,9 @@ export async function generateAssistantReply(
     return {
       sender: 'assistant',
       modeLabel: 'Demo Rule-Based Guidance',
-      text: `[Educational Crop Health Scouting Guide]\nWhen investigating yellow leaves (chlorosis) on your farm, check three clues first:\n1. Which leaves turned yellow first?\n   • Older bottom leaves (uniform pale yellow) → Often Nitrogen scarcity or waterlogged roots.\n   • Older bottom leaves (green veins, yellow between veins) → Often Magnesium deficiency (common in fruiting tomatoes).\n   • Youngest top leaves (interveinal yellowing or rusty spots) → Often Iron or Zinc lockup (such as Khaira in paddy when soil pH > 7.5).\n2. Check under the leaf with a 10x lens: Look for whiteflies, aphids, or mites that cause yellow stippling and leaf curl.\n3. Check root-zone moisture at 15 cm depth: Over-watering suffocates roots and causes yellowing just like drought.\n\nFor a crop-specific disease profile, explore the 100 Crop Diseases Encyclopedia and consult your local KVK officer before applying chemical sprays.`,
+      text: `[Educational Crop Health Scouting Guide]\nWhen investigating yellow leaves (chlorosis) on your farm, check three clues first:\n1. Which leaves turned yellow first?\n   • Older bottom leaves (uniform pale yellow) → Often Nitrogen scarcity or waterlogged roots.\n   • Older bottom leaves (green veins, yellow between veins) → Often Magnesium deficiency (common in fruiting tomatoes).\n   • Youngest top leaves (interveinal yellowing or rusty spots) → Often Iron or Zinc lockup (such as Khaira in paddy when soil pH > 7.5).\n2. Check under the leaf with a 10x lens: Look for whiteflies, aphids, or mites that cause yellow stippling and leaf curl.\n3. Check root-zone moisture at 15 cm depth: Over-watering suffocates roots and causes yellowing just like drought.\n\nFor a crop-specific disease profile, explore the Crop Diseases Encyclopedia and consult your local KVK officer before applying chemical sprays.`,
       suggestedLinks: [
-        { label: 'Open 100 Crop Diseases Directory', route: '/disease' },
+        { label: 'Open Crop Diseases Directory', route: '/disease' },
         { label: 'Read "Interveinal Chlorosis" in Dictionary', route: '/dictionary' },
         { label: 'Browse Sticky Traps & Micronutrients', route: '/store' },
       ],
@@ -330,14 +330,14 @@ export async function generateAssistantReply(
     };
   }
 
-  // 8. 100 Crop Diseases / Pathology questions
+  // 8. Crop Diseases / Pathology questions
   if (q.includes('disease') || q.includes('pathology') || q.includes('blast') || q.includes('rust') || q.includes('blight') || q.includes('wilt') || q.includes('smut')) {
     return {
       sender: 'assistant',
       modeLabel: 'Demo Rule-Based Guidance',
-      text: `[AGRIPULSE 100 Crop Diseases Directory]\nOur platform includes complete scientific profiles for 100 major crop diseases across Indian agriculture:\n• Cereals: Rice blast (#1), BLB (#2), Wheat stripe rust (#11), Loose smut (#13)\n• Pulses: Chickpea wilt (#31), Ascochyta blight (#32), Mungbean yellow mosaic (#39)\n• Vegetables: Tomato early blight (#66), Late blight (#67), Bacterial wilt (#68)\n• Oilseeds & Commercial: Mustard Alternaria (#52), Cotton leaf curl (#59), Sugarcane red rot (#61)\n• Fruits: Mango anthracnose (#91), Citrus canker (#94), Banana Fusarium wilt TR4 (#96)\n\nEach profile details causal pathogens, primary field symptoms, favorable weather conditions, and Integrated Disease Management (IDM) practices.`,
+      text: `[AGRIPULSE Crop Diseases Directory]\nOur platform includes comprehensive scientific profiles for over 300 major crop diseases across Indian and global agriculture:\n• Cereals: Rice blast (#1), BLB (#2), Wheat stripe rust (#11), Loose smut (#13)\n• Pulses: Chickpea wilt (#31), Ascochyta blight (#32), Mungbean yellow mosaic (#39)\n• Vegetables: Tomato early blight (#66), Late blight (#67), Bacterial wilt (#68)\n• Oilseeds & Commercial: Mustard Alternaria (#52), Cotton leaf curl (#59), Sugarcane red rot (#61)\n• Fruits: Mango anthracnose (#91), Citrus canker (#94), Banana Fusarium wilt TR4 (#96), Apple scab (#99)\n\nEach profile details causal pathogens, primary field symptoms, favorable weather conditions, and Integrated Disease Management (IDM) practices.`,
       suggestedLinks: [
-        { label: 'Open 100 Crop Diseases Directory', route: '/disease' },
+        { label: 'Open Crop Diseases Directory', route: '/disease' },
         { label: 'Search Pathology Profiles', route: '/disease' },
       ],
     };
@@ -347,10 +347,10 @@ export async function generateAssistantReply(
   return {
     sender: 'assistant',
     modeLabel: 'Demo Rule-Based Guidance',
-    text: `[AGRIPULSE AI Farm Assistant]\nI received your question: "${userQuery}".\n\nBased on your registered profile (${ctx.profile.name}, ${ctx.profile.district}, ${ctx.profile.state}), you currently have ${ctx.farms.filter((f) => !f.isArchived).length} active farm(s), ${ctx.crops.length} crop record(s), and ${pendingActivities.length} pending farm activity item(s).\n\nTry asking me:\n• "What should I check on my farm today?"\n• "Explain today's weather for my crop."\n• "How do I investigate yellow leaves?"\n• "Explain the warranty of store products."\n• "Tell me about wheat stripe rust in the 100 diseases list."\n• "Help me find suitable agricultural schemes."\n• "Show me products for my selected crop."`,
+    text: `[AGRIPULSE AI Farm Assistant]\nI received your question: "${userQuery}".\n\nBased on your registered profile (${ctx.profile.name}, ${ctx.profile.district}, ${ctx.profile.state}), you currently have ${ctx.farms.filter((f) => !f.isArchived).length} active farm(s), ${ctx.crops.length} crop record(s), and ${pendingActivities.length} pending farm activity item(s).\n\nTry asking me:\n• "What should I check on my farm today?"\n• "Explain today's weather for my crop."\n• "How do I investigate yellow leaves?"\n• "Explain the warranty of store products."\n• "Tell me about wheat stripe rust in the crop diseases list."\n• "Help me find suitable agricultural schemes."\n• "Show me products for my selected crop."`,
     suggestedLinks: [
       { label: 'Dashboard Overview', route: '/home' },
-      { label: '100 Diseases Directory', route: '/disease' },
+      { label: 'Crop Diseases Directory', route: '/disease' },
       { label: 'Agricultural Store', route: '/store' },
     ],
   };

@@ -10,7 +10,7 @@ const capabilities = [
 
 export const SiteHomePage: React.FC = () => <div className="harvest-home">
   <section className="harvest-hero" aria-labelledby="harvest-title">
-    <img className="harvest-hero-image" src="/images/field-landscape.webp" alt="Illustrative green crop rows in a warm, sunlit farming landscape" width="1536" height="1024" fetchPriority="high" />
+    <img className="harvest-hero-image" src="/images/field-landscape.webp" alt="Illustrative green crop rows in a warm, sunlit farming landscape" width="1536" height="1024" loading="eager" />
     <div className="harvest-hero-shade" />
     <div className="harvest-hero-content">
       <p className="harvest-eyebrow"><span /> ROOTED IN FARMING. CONNECTED BY TECHNOLOGY.</p>

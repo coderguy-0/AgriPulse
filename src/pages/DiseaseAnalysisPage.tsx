@@ -215,7 +215,7 @@ export const DiseaseAnalysisPage: React.FC = () => {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs sm:text-sm font-bold transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>All 100 Diseases</span>
+              <span>All Diseases</span>
             </button>
 
             <div className="flex items-center gap-2 flex-wrap">
@@ -928,10 +928,10 @@ export const DiseaseAnalysisPage: React.FC = () => {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f0fdf4] border border-[#bbf7d0] text-[#065f46] text-xs font-bold mb-2">
               <BookOpen className="w-3.5 h-3.5 text-[#16a34a]" />
-              <span>100 Crop Diseases Encyclopedia &amp; Infographic Monographs</span>
+              <span>Crop Diseases Encyclopedia &amp; Infographic Monographs</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              100 Crop Diseases Directory
+              Crop Diseases Directory
             </h1>
             <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-3xl leading-relaxed">
               Click any crop disease below to open its full interactive <strong>Infographic Monograph</strong> with AI assistant prompts, quick pathological facts, diagnostic indications, spray regimens, and compendia sources.
@@ -953,7 +953,7 @@ export const DiseaseAnalysisPage: React.FC = () => {
               type="text"
               value={diseaseSearch}
               onChange={(e) => setDiseaseSearch(e.target.value)}
-              placeholder="Search across all 100 crop diseases (e.g., Rice blast, Leaf rust, Late blight, Citrus canker)..."
+              placeholder="Search across crop diseases (e.g., Rice blast, Apple scab, Stewart's wilt, Bacterial canker)..."
               className="w-full pl-11 pr-10 py-3 rounded-2xl border border-slate-200/90 bg-slate-50/70 focus:bg-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
             />
             {diseaseSearch && (
