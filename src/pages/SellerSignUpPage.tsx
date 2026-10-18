@@ -13,8 +13,10 @@ import {
   FileCheck,
   Sprout,
   Users,
+  ArrowLeft,
 } from 'lucide-react';
 import { AgriPulseLogo } from '../components/AgriPulseLogo';
+import { AgriPulseLoader } from '../components/AgriPulseLoader';
 import { useAgriPulse } from '../context/AgriPulseContext';
 
 const BUSINESS_CATEGORIES = [
@@ -129,6 +131,13 @@ export const SellerSignUpPage: React.FC = () => {
             Already Registered? Sign In
           </Link>
         </div>
+          <Link
+            to="/"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-forest-100 hover:text-white bg-forest-900 hover:bg-forest-800 border border-forest-700 font-medium transition"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Website home</span>
+          </Link>
       </header>
 
       {/* Main Content */}
@@ -380,7 +389,7 @@ export const SellerSignUpPage: React.FC = () => {
                   className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white font-bold text-sm shadow-sm transition"
                 >
                   <span>{isSubmitting ? 'Creating account…' : 'Create Seller Account'}</span>
-                  <ArrowRight className="w-4 h-4" />
+                  {isSubmitting ? <AgriPulseLoader size="sm" className="agri-loader--button" /> : <ArrowRight className="w-4 h-4" />}
                 </button>
               </div>
             </div>

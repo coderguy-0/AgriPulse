@@ -1,9 +1,16 @@
 {
   "name": "AGRIPULSE",
-  "description": "AGRIPULSE — responsive farmer and seller portal prototype with farm records, weather guidance, crop-health references, marketplace previews, and Devices & IoT demo registry.",
+  "description": "AGRIPULSE \u2014 intelligent farm digital twin and early crop-stress detection platform with a farmer portal, public product website, IoT sensor monitoring, digital farm twin, transparent rule-based crop-stress screening, irrigation guidance, weather advisories, alerts, reports, device registry, crop-health library and a rule-based assistant.",
   "capabilities": [
-    "FARMER_SELLER_PORTALS",
-    "FARM_DIGITAL_TWIN_PROTOTYPE",
-    "DEVICES_IOT_DEMO"
+    "PUBLIC_PRODUCT_WEBSITE",
+    "FARMER_PORTAL",
+    "SELLER_PORTAL",
+    "FARM_DIGITAL_TWIN",
+    "SENSOR_MONITORING",
+    "CROP_STRESS_SCREENING",
+    "IRRIGATION_GUIDANCE",
+    "DEVICES_IOT_PROVISIONING",
+    "ALERTS_AND_REPORTS",
+    "DATA_PROVENANCE_LABELS"
   ]
 }

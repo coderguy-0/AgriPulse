@@ -1,9 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import type { LucideIcon } from 'lucide-react';
 import {
   Store,
   Package,
-  TrendingUp,
+  LayoutDashboard,
+  Menu,
   Truck,
   Plus,
   Search,
@@ -32,6 +34,7 @@ import {
   Check,
 } from 'lucide-react';
 import { AgriPulseLogo } from '../components/AgriPulseLogo';
+import { AgriPulseLoader } from '../components/AgriPulseLoader';
 import { useAgriPulse } from '../context/AgriPulseContext';
 import { DemoOrder, OrderStatus, ProductCategory, StoreProduct } from '../types';
 
@@ -46,6 +49,34 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
   'Hand tools and accessories',
   'Farm safety equipment',
   'Harvesting and storage supplies',
+];
+
+type SellerTabId = 'overview' | 'catalog' | 'orders' | 'payouts' | 'settings';
+type SellerNavItem = {
+  id: SellerTabId;
+  label: string;
+  mobileLabel: string;
+  title: string;
+  section: string;
+  icon: LucideIcon;
+};
+
+const SELLER_NAV_GROUPS: { label: string; items: SellerNavItem[] }[] = [
+  {
+    label: 'Seller Workspace',
+    items: [
+      { id: 'overview', label: 'Dashboard Overview', mobileLabel: 'Overview', title: 'Dashboard Overview', section: 'Seller Workspace', icon: LayoutDashboard },
+      { id: 'catalog', label: 'Catalog & Inventory', mobileLabel: 'Catalog', title: 'Catalog & Inventory', section: 'Seller Workspace', icon: Package },
+      { id: 'orders', label: 'Demo Orders', mobileLabel: 'Orders', title: 'Demo Orders', section: 'Seller Workspace', icon: Truck },
+    ],
+  },
+  {
+    label: 'Business Management',
+    items: [
+      { id: 'payouts', label: 'Financials & Payouts', mobileLabel: 'Payouts', title: 'Financials & Payouts', section: 'Business Management', icon: DollarSign },
+      { id: 'settings', label: 'Store Profile & GSTIN', mobileLabel: 'Profile', title: 'Store Profile & GSTIN', section: 'Business Management', icon: Building2 },
+    ],
+  },
 ];
 
 export const SellerPortalPage: React.FC = () => {
@@ -67,7 +98,11 @@ export const SellerPortalPage: React.FC = () => {
 
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'catalog' | 'orders' | 'payouts' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<SellerTabId>('overview');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileDrawerRef = useRef<HTMLElement>(null);
+  const mobileDrawerCloseButtonRef = useRef<HTMLButtonElement>(null);
   const [catalogFilter, setCatalogFilter] = useState<'mine' | 'all'>('mine');
   const [catalogCategory, setCatalogCategory] = useState<string>('All');
   const [catalogSearch, setCatalogSearch] = useState('');
@@ -90,6 +125,10 @@ export const SellerPortalPage: React.FC = () => {
 
   // Status Filter for Orders Tab
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('All');
+
+  useEffect(() => {
+    if (mobileNavOpen) mobileDrawerCloseButtonRef.current?.focus();
+  }, [mobileNavOpen]);
 
   // Filtered Products
   const displayedProducts = useMemo(() => {
@@ -140,8 +179,63 @@ export const SellerPortalPage: React.FC = () => {
     return orders.filter((o) => o.orderStatus === orderStatusFilter);
   }, [orders, orderStatusFilter]);
 
-  const handleSwitchToFarmerPortal = async () => {
-    if (await switchPortal('farmer')) navigate('/home');
+  const activeNavItem = SELLER_NAV_GROUPS
+    .flatMap((group) => group.items)
+    .find((item) => item.id === activeTab) || SELLER_NAV_GROUPS[0].items[0];
+  const activeNavTitle = activeNavItem.id === 'orders'
+    ? session?.isDemo ? 'Demo Orders' : 'Workspace Orders'
+    : activeNavItem.title;
+
+  const renderNavigationGroups = (closeOnSelect = false) => SELLER_NAV_GROUPS.map((group) => (
+    <div key={group.label} className="app-nav-group">
+      <div className="px-3 pb-2 pt-3 text-[10px] font-bold uppercase tracking-[0.16em] text-forest-300/80">{group.label}</div>
+      {group.items.map((item) => {
+        const Icon = item.icon;
+        const isActive = activeTab === item.id;
+        const navLabel = item.id === 'catalog'
+          ? `${item.label} (${myListedProductsCount})`
+          : item.id === 'orders'
+            ? `${session?.isDemo ? 'Demo Orders' : 'Workspace Orders'} (${orders.length})`
+            : item.label;
+        const badgeCount = item.id === 'orders' ? pendingOrdersCount : 0;
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => {
+              setActiveTab(item.id);
+              if (closeOnSelect) closeMobileNav();
+            }}
+            aria-current={isActive ? 'page' : undefined}
+            className={`app-nav-link flex w-full items-center justify-between px-3 py-2.5 rounded-xl text-left text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-leaf-300 focus-visible:ring-offset-2 focus-visible:ring-offset-forest-950 ${isActive ? 'is-active' : ''}`}
+          >
+            <span className="flex min-w-0 items-center gap-3">
+              <Icon className="w-[17px] h-[17px] shrink-0" aria-hidden="true" />
+              <span className="truncate">{navLabel}</span>
+            </span>
+            {badgeCount > 0 && (
+              <span className="app-nav-count is-device" aria-label={`${badgeCount} pending orders`}>
+                {badgeCount}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  ));
+
+  const handleSwitchToFarmerPortal = async (destination = '/home') => {
+    if (await switchPortal('farmer')) navigate(destination);
+  };
+
+  const closeMobileNav = () => {
+    setMobileNavOpen(false);
+    window.requestAnimationFrame(() => mobileMenuButtonRef.current?.focus());
+  };
+
+  const handleLogout = () => {
+    void logout();
+    navigate('/login', { replace: true });
   };
 
   const handleCreateProduct = (e: React.FormEvent) => {
@@ -218,144 +312,127 @@ export const SellerPortalPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col text-slate-900">
-      {/* Top Banner Navigation */}
-      <header className="bg-forest-950 text-white sticky top-0 z-30 shadow-md border-b border-forest-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-          {/* Logo & Seller Hub Title */}
-          <div className="flex items-center gap-3">
+    <div className="app-shell min-h-screen bg-warmbg text-slate-900 flex flex-col lg:flex-row">
+      {/* Seller navigation follows the same forest sidebar and active-item treatment as the Farmer Portal. */}
+      <aside
+        aria-label="Seller portal sidebar"
+        className="app-sidebar hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-forest-950 text-white border-r border-forest-900 z-30"
+      >
+        <div className="app-sidebar-brand px-5 py-4 border-b border-forest-800/80 flex flex-col items-start justify-center gap-2">
+          <Link to="/seller" onClick={() => setActiveTab('overview')} className="focus:outline-none" aria-label="Seller dashboard overview">
             <AgriPulseLogo size="md" theme="light" />
-            <div className="hidden sm:block border-l border-forest-800 pl-3">
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-sm tracking-tight text-white">
-                  Seller Central Hub
-                </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  {session?.isDemo ? 'Development Demo Workspace' : 'Seller account'}
-                </span>
-              </div>
-              <p className="text-[11px] text-forest-300 truncate max-w-xs">
-                {sellerProfile.businessName}
-              </p>
-            </div>
-          </div>
+          </Link>
+          <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-forest-300/90">Seller Central</span>
+        </div>
 
-          {/* Quick Actions / Portal Switcher */}
-          <div className="flex items-center gap-2 sm:gap-3 text-xs">
-            {session?.isDemo && <>
-              <Link
-                to="/store"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-forest-900 hover:bg-forest-800 text-forest-200 hover:text-white border border-forest-700 transition"
-                title="See how sample products appear in the farmer store"
+        <nav className="app-sidebar-nav flex-1 px-3 py-4 space-y-1 overflow-y-auto" aria-label="Seller portal navigation">
+          {renderNavigationGroups()}
+        </nav>
+
+        <div className="app-sidebar-footer p-3 border-t border-forest-800/80 bg-forest-900/50">
+          <div className="px-2.5 py-2 rounded-lg bg-forest-900/90 border border-forest-800">
+            <div className="flex items-center justify-between gap-2">
+              <span
+                className="text-[11px] font-semibold text-white truncate"
+                title={sellerProfile.contactPerson || sellerProfile.businessName}
               >
-                <Eye className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="hidden md:inline">Preview Farmer Store</span>
-              </Link>
+                {sellerProfile.contactPerson || sellerProfile.businessName || 'Seller account'}
+              </span>
+              <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-leaf-500/20 text-leaf-300 border border-leaf-500/30">
+                {session?.isDemo ? 'Demo' : 'Account'}
+              </span>
+            </div>
+            <p className="text-[10px] text-forest-200 truncate mt-0.5" title={sellerProfile.businessName}>
+              {sellerProfile.businessName || 'Business name not provided'}
+            </p>
+            <p className="text-[10px] text-forest-300 truncate mt-0.5">
+              {[sellerProfile.city, sellerProfile.state].filter(Boolean).join(', ') || 'Business location not provided'}
+            </p>
+          </div>
+        </div>
+      </aside>
 
+      <div className="app-main-column flex-1 lg:pl-64 flex flex-col min-h-screen min-w-0">
+        <header className="app-header sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-slate-200 px-4 sm:px-6 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <button
+                ref={mobileMenuButtonRef}
+                type="button"
+                onClick={() => setMobileNavOpen(true)}
+                aria-label="Open seller navigation menu"
+                aria-expanded={mobileNavOpen}
+                aria-controls="seller-mobile-navigation"
+                className="lg:hidden rounded-xl border border-slate-200 p-2 text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-leaf-500"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-forest-700">
+                  <span className="shrink-0">Seller Central Hub</span>
+                  <span aria-hidden="true">/</span>
+                  <span className="truncate" title={sellerProfile.businessName}>
+                    {sellerProfile.businessName || 'Seller account'}
+                  </span>
+                </div>
+                <h1 className="truncate text-sm font-bold text-slate-900 sm:text-base">
+                  {activeNavTitle}
+                </h1>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+              {session?.isDemo && (
+                <span
+                  title="Development Demo Workspace"
+                  className="inline-flex items-center rounded-xl border border-amber-200 bg-amber-50 px-2 py-1.5 text-[10px] font-semibold text-amber-900 sm:px-2.5 sm:text-[11px]"
+                >
+                  <span className="md:hidden">Demo</span>
+                  <span className="hidden md:inline">Development Demo Workspace</span>
+                </span>
+              )}
+              {session?.isDemo && (
+                <div className="hidden items-center gap-2 lg:flex">
+                  <button
+                    type="button"
+                    onClick={() => void handleSwitchToFarmerPortal('/store')}
+                    aria-label="Preview Farmer Store"
+                    title="Switch to the Farmer Portal and preview the store"
+                    className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-forest-200 bg-forest-50 px-2.5 text-xs font-semibold text-forest-900 hover:bg-forest-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-leaf-500"
+                  >
+                    <Eye className="h-4 w-4" />
+                    <span className="hidden xl:inline">Preview Farmer Store</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleSwitchToFarmerPortal('/home')}
+                    aria-label="Switch to Farmer Portal"
+                    title="Open the development Farmer workspace"
+                    className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-forest-900 px-2.5 text-xs font-semibold text-white hover:bg-forest-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-leaf-500"
+                  >
+                    <Sprout className="h-4 w-4 text-leaf-300" />
+                    <span className="hidden xl:inline">Switch to Farmer Portal</span>
+                  </button>
+                </div>
+              )}
               <button
                 type="button"
-                onClick={handleSwitchToFarmerPortal}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-leaf-600 hover:bg-leaf-500 text-white font-semibold transition shadow-sm"
-                title="Open the development Farmer workspace"
+                onClick={handleLogout}
+                aria-label="Sign out"
+                title="Sign out"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-2.5 text-xs font-semibold text-slate-700 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-leaf-500"
               >
-                <Sprout className="w-3.5 h-3.5 text-amber-300" />
-                <span>Switch to Farmer Portal</span>
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Sign out</span>
               </button>
-            </>}
-
-            <button
-              type="button"
-              onClick={() => {
-                logout();
-                navigate('/login');
-              }}
-              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-forest-900 hover:bg-rose-900/50 text-forest-300 hover:text-rose-200 border border-forest-800 transition"
-              title="Sign Out"
-            >
-              <LogOut className="w-4 h-4 sm:hidden" />
-              <span className="hidden sm:inline">Sign Out</span>
-            </button>
+            </div>
           </div>
-        </div>
+        </header>
 
-        {/* Tab Navigation Bar */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex overflow-x-auto border-t border-forest-900 scrollbar-none">
-          <button
-            type="button"
-            onClick={() => setActiveTab('overview')}
-            className={`px-4 py-3 text-xs font-bold whitespace-nowrap border-b-2 transition flex items-center gap-2 ${
-              activeTab === 'overview'
-                ? 'border-emerald-400 text-emerald-300 bg-forest-900/50'
-                : 'border-transparent text-forest-300 hover:text-white'
-            }`}
-          >
-            <TrendingUp className="w-4 h-4" />
-            <span>Dashboard Overview</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('catalog')}
-            className={`px-4 py-3 text-xs font-bold whitespace-nowrap border-b-2 transition flex items-center gap-2 ${
-              activeTab === 'catalog'
-                ? 'border-emerald-400 text-emerald-300 bg-forest-900/50'
-                : 'border-transparent text-forest-300 hover:text-white'
-            }`}
-          >
-            <Package className="w-4 h-4" />
-            <span>Catalog & Inventory ({myListedProductsCount})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('orders')}
-            className={`px-4 py-3 text-xs font-bold whitespace-nowrap border-b-2 transition flex items-center gap-2 ${
-              activeTab === 'orders'
-                ? 'border-emerald-400 text-emerald-300 bg-forest-900/50'
-                : 'border-transparent text-forest-300 hover:text-white'
-            }`}
-          >
-            <Truck className="w-4 h-4" />
-            <span>{session?.isDemo ? 'Demo orders' : 'Workspace orders'} ({orders.length})</span>
-            {pendingOrdersCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-slate-950 font-extrabold">
-                {pendingOrdersCount}
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('payouts')}
-            className={`px-4 py-3 text-xs font-bold whitespace-nowrap border-b-2 transition flex items-center gap-2 ${
-              activeTab === 'payouts'
-                ? 'border-emerald-400 text-emerald-300 bg-forest-900/50'
-                : 'border-transparent text-forest-300 hover:text-white'
-            }`}
-          >
-            <DollarSign className="w-4 h-4" />
-            <span>Financials & Payouts</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('settings')}
-            className={`px-4 py-3 text-xs font-bold whitespace-nowrap border-b-2 transition flex items-center gap-2 ${
-              activeTab === 'settings'
-                ? 'border-emerald-400 text-emerald-300 bg-forest-900/50'
-                : 'border-transparent text-forest-300 hover:text-white'
-            }`}
-          >
-            <Building2 className="w-4 h-4" />
-            <span>Store Profile & GSTIN</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Main Workspace */}
-      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 flex-1 space-y-6">
-        <div role={workspaceSyncError ? 'alert' : 'status'} className={`rounded-xl border px-4 py-2.5 text-xs ${workspaceSyncError ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-emerald-200 bg-emerald-50 text-emerald-900'}`}>
-          {workspaceSyncError ? `Workspace sync issue: ${workspaceSyncError}` : workspaceSyncStatus === 'saving' ? 'Saving changes to your authenticated AGRIPULSE workspace…' : workspaceSyncStatus === 'error' ? 'Workspace save failed. Changes may not be stored.' : workspaceSyncStatus === 'saved' ? `${session?.isDemo ? 'Development demo' : 'Account'} workspace synced to the AGRIPULSE API.` : 'Connecting to the AGRIPULSE workspace…'}
+        <main className="app-content flex-1 px-4 sm:px-6 lg:px-8 max-w-[1440px] w-full mx-auto space-y-6">
+        <div role={workspaceSyncError ? 'alert' : 'status'} className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs ${workspaceSyncError ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-emerald-200 bg-emerald-50 text-emerald-900'}`}>
+          {workspaceSyncStatus === 'saving' && <AgriPulseLoader size="sm" />}
+          <span>{workspaceSyncError ? `Workspace sync issue: ${workspaceSyncError}` : workspaceSyncStatus === 'saving' ? 'Saving changes to your authenticated AGRIPULSE workspace…' : workspaceSyncStatus === 'error' ? 'Workspace save failed. Changes may not be stored.' : workspaceSyncStatus === 'saved' ? `${session?.isDemo ? 'Development demo' : 'Account'} workspace synced to the AGRIPULSE API.` : 'Connecting to the AGRIPULSE workspace…'}</span>
         </div>
         {/* Verification & Seller Callout Banner */}
         <div className="rounded-2xl bg-white border border-slate-200 p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -365,9 +442,9 @@ export const SellerPortalPage: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base font-bold text-slate-900">
+                <h2 className="text-base font-bold text-slate-900">
                   {sellerProfile.businessName}
-                </h1>
+                </h2>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
                   <ShieldCheck className="w-3 h-3 text-emerald-600" />
                   {session?.isDemo ? 'Demo profile · not verified' : 'Account profile · not verified'}
@@ -1096,7 +1173,133 @@ export const SellerPortalPage: React.FC = () => {
             </div>
           </div>
         )}
-      </main>
+        </main>
+      </div>
+
+      {mobileNavOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            className="fixed inset-0 bg-slate-900/60 cursor-default"
+            onClick={closeMobileNav}
+            aria-label="Close seller navigation menu"
+          />
+          <aside
+            ref={mobileDrawerRef}
+            id="seller-mobile-navigation"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Seller portal navigation"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                closeMobileNav();
+                return;
+              }
+              if (event.key !== 'Tab') return;
+              const focusable = mobileDrawerRef.current?.querySelectorAll<HTMLElement>(
+                'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+              );
+              if (!focusable?.length) return;
+              const first = focusable[0];
+              const last = focusable[focusable.length - 1];
+              if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+              } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+              }
+            }}
+            className="relative z-10 flex h-full w-72 max-w-[82vw] flex-col bg-forest-950 text-white shadow-2xl"
+          >
+            <div className="flex items-center justify-between border-b border-forest-800 p-4">
+              <Link to="/seller" onClick={() => { setActiveTab('overview'); closeMobileNav(); }} aria-label="Seller dashboard overview">
+                <AgriPulseLogo size="sm" theme="light" />
+              </Link>
+              <button
+                ref={mobileDrawerCloseButtonRef}
+                type="button"
+                onClick={closeMobileNav}
+                aria-label="Close seller navigation menu"
+                className="rounded-lg p-1.5 text-forest-200 hover:bg-forest-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-leaf-300"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <nav className="flex-1 overflow-y-auto p-3" aria-label="Seller portal sections">
+              {renderNavigationGroups(true)}
+            </nav>
+
+            {session?.isDemo && (
+              <div className="space-y-2 border-t border-forest-800 p-3">
+                <button
+                  type="button"
+                  onClick={() => { closeMobileNav(); void handleSwitchToFarmerPortal('/home'); }}
+                  className="app-seller-switch flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold transition"
+                >
+                  <Sprout className="h-4 w-4" />
+                  <span>Switch to Farmer Portal</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { closeMobileNav(); void handleSwitchToFarmerPortal('/store'); }}
+                  className="flex w-full items-center gap-3 rounded-xl border border-forest-700 bg-forest-900 px-3 py-2.5 text-xs font-semibold text-forest-200 transition hover:bg-forest-800 hover:text-white"
+                >
+                  <Eye className="h-4 w-4 text-leaf-300" />
+                  <span>Preview Farmer Store</span>
+                </button>
+              </div>
+            )}
+
+            <div className="app-sidebar-footer border-t border-forest-800 p-3">
+              <div className="rounded-lg border border-forest-800 bg-forest-900/90 px-2.5 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className="truncate text-[11px] font-semibold text-white"
+                    title={sellerProfile.contactPerson || sellerProfile.businessName}
+                  >
+                    {sellerProfile.contactPerson || sellerProfile.businessName || 'Seller account'}
+                  </span>
+                  <span className="shrink-0 rounded border border-leaf-500/30 bg-leaf-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase text-leaf-300">
+                    {session?.isDemo ? 'Demo' : 'Account'}
+                  </span>
+                </div>
+                <p className="mt-0.5 truncate text-[10px] text-forest-200" title={sellerProfile.businessName}>
+                  {sellerProfile.businessName || 'Business name not provided'}
+                </p>
+                <p className="mt-0.5 truncate text-[10px] text-forest-300">
+                  {[sellerProfile.city, sellerProfile.state].filter(Boolean).join(', ') || 'Business location not provided'}
+                </p>
+              </div>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      <nav
+        aria-label="Seller mobile navigation"
+        className="app-mobile-bottom-nav lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-slate-200 px-2 py-1.5 grid grid-cols-5 gap-1 shadow-lg"
+      >
+        {SELLER_NAV_GROUPS.flatMap((group) => group.items).map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setActiveTab(item.id)}
+              aria-current={isActive ? 'page' : undefined}
+              title={item.title}
+              className={`flex min-w-0 flex-col items-center justify-center rounded-lg py-1 text-[10px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-leaf-500 ${isActive ? 'bg-forest-50 text-forest-800' : 'text-slate-600 hover:bg-slate-50'}`}
+            >
+              <Icon className="mb-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="max-w-full truncate">{item.mobileLabel}</span>
+            </button>
+          );
+        })}
+      </nav>
 
       {/* ADD PRODUCT MODAL */}
       {showAddModal && (

@@ -1,11 +1,83 @@
-import Database from 'better-sqlite3';
+import { createRequire } from 'node:module';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+
+const require = createRequire(import.meta.url);
+
+/**
+ * The API uses a synchronous SQLite driver. `better-sqlite3` is preferred because it is the
+ * vetted native driver used in development and deployment. Some sandboxes cannot compile
+ * native modules and do not ship downloadable Node headers, so we fall back to Node's built-in
+ * `node:sqlite` with a thin compatibility shim that exposes the small surface this codebase uses
+ * (`pragma`, `exec`, `prepare().run/get/all`, `transaction`, `close`).
+ *
+ * Both drivers speak the same SQL and both bind positional `?` parameters, so the fallback does
+ * not change application behaviour. It is a local-development convenience only: production must
+ * run a managed database, not this file-backed shim. See docs/DEVICE_API_CONTRACTS.md.
+ */
+function loadDriver() {
+  try {
+    const BetterSqlite3 = require('better-sqlite3');
+    return { name: 'better-sqlite3', create: (filename) => new BetterSqlite3(filename) };
+  } catch {
+    const { DatabaseSync } = require('node:sqlite');
+    return { name: 'node:sqlite (development fallback)', create: (filename) => new NodeSqliteCompat(filename, DatabaseSync) };
+  }
+}
+
+class NodeSqliteCompat {
+  constructor(filename, DatabaseSync) {
+    this.dialect = 'sqlite';
+    this.driver = 'node:sqlite';
+    this.handle = new DatabaseSync(filename);
+  }
+
+  /** Mirrors better-sqlite3's pragma helper: "name = value" sets, a bare name reads. */
+  pragma(statement) {
+    if (statement.includes('=')) {
+      this.handle.exec(`PRAGMA ${statement}`);
+      return undefined;
+    }
+    return this.handle.prepare(`PRAGMA ${statement}`).all();
+  }
+
+  exec(sql) {
+    return this.handle.exec(sql);
+  }
+
+  prepare(sql) {
+    return this.handle.prepare(sql);
+  }
+
+  transaction(fn) {
+    return (...args) => {
+      this.handle.exec('BEGIN');
+      try {
+        const result = fn(...args);
+        this.handle.exec('COMMIT');
+        return result;
+      } catch (error) {
+        try {
+          this.handle.exec('ROLLBACK');
+        } catch {
+          /* the transaction may already be rolled back by the driver */
+        }
+        throw error;
+      }
+    };
+  }
+
+  close() {
+    return this.handle.close();
+  }
+}
 
 export function openDatabase(filename = process.env.AGRIPULSE_DB_PATH || '.data/agripulse.sqlite') {
   if (filename !== ':memory:') mkdirSync(dirname(filename), { recursive: true });
 
-  const db = new Database(filename);
+  const driver = loadDriver();
+  const db = driver.create(filename);
+  db.driverName = driver.name;
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
   if (filename !== ':memory:') db.pragma('journal_mode = WAL');

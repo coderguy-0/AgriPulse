@@ -12,6 +12,7 @@ import {
   Navigation,
   ShieldAlert,
 } from 'lucide-react';
+import { AgriPulseLoader } from '../components/AgriPulseLoader';
 import { useAgriPulse } from '../context/AgriPulseContext';
 import {
   fetchWeatherForLocation,
@@ -191,7 +192,7 @@ export const WeatherIntelligencePage: React.FC = () => {
             onClick={() => void handleLocationApply(false)}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-forest-800 hover:bg-forest-900 text-white text-xs font-bold transition-colors"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            {isLoading ? <AgriPulseLoader size="sm" className="agri-loader--button" /> : <RefreshCw className="w-3.5 h-3.5" />}
             <span>{isLoading ? 'Refreshing...' : 'Retry / Refresh'}</span>
           </button>
           <button

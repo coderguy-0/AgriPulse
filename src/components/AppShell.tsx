@@ -1,7 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState,
+  lazy,
+  Suspense,
+} from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Home,
+  LayoutDashboard,
   Tractor,
   CloudSun,
   BookOpen,
@@ -21,35 +24,70 @@ import {
   AlertTriangle,
   Calendar,
   RadioTower,
-} from 'lucide-react';
-import { AgriPulseLogo } from './AgriPulseLogo';
-import { FloatingAIChat } from './FloatingAIChat';
-import { useAgriPulse } from '../context/AgriPulseContext';
-
-import {
+  Activity,
+  Sparkles,
+  Droplets,
+  Layers,
+  Map,
+  BellRing,
+  FileBarChart2,
+  Bot,
+  BookMarked,
   Tag,
   Heart,
   Store,
+  CheckCircle2,
+  Info,
 } from 'lucide-react';
+import { AgriPulseLogo } from './AgriPulseLogo';
+import { AgriPulseLoader } from './AgriPulseLoader';
+/**
+ * The floating assistant is loaded on first use: it pulls in the disease reference index, which
+ * would otherwise sit in the entry bundle for every farmer opening the dashboard.
+ */
+const FloatingAIChat = lazy(() => import('./FloatingAIChat').then((m) => ({ default: m.FloatingAIChat })));
+import { useAgriPulse } from '../context/AgriPulseContext';
+import { useFarmTelemetry } from '../hooks/useFarmTelemetry';
+import { buildAlerts, buildZoneSnapshots, AlertItem } from '../services/fieldIntelligence';
+import { describeFreshness, formatTimestamp } from '../services/provenance';
 
 const NAV_GROUPS = [
   {
-    label: 'Farm & intelligence',
+    label: 'Farm overview',
     items: [
-      { to: '/home', label: 'Home', icon: Home },
-      { to: '/farm', label: 'Farm & plots', icon: Tractor },
-      { to: '/devices', label: 'Devices & IoT', icon: RadioTower },
-      { to: '/weather', label: 'Weather', icon: CloudSun },
-      { to: '/dictionary', label: 'Dictionary', icon: BookOpen },
-      { to: '/disease', label: 'Crop health library', icon: Stethoscope },
+      { to: '/home', label: 'Dashboard', icon: LayoutDashboard },
+      { to: '/farm', label: 'Farms & field zones', icon: Tractor },
+      { to: '/twin', label: 'Digital farm twin', icon: Map },
     ],
   },
   {
-    label: 'Market & resources',
+    label: 'Field intelligence',
     items: [
+      { to: '/monitoring', label: 'Live monitoring', icon: Activity },
+      { to: '/insights', label: 'AI insights', icon: Sparkles },
+      { to: '/irrigation', label: 'Irrigation guidance', icon: Droplets },
+      { to: '/soil', label: 'Soil health', icon: Layers },
+      { to: '/crop-health', label: 'Crop health', icon: Stethoscope },
+      { to: '/weather', label: 'Weather', icon: CloudSun },
+      { to: '/alerts', label: 'Alerts', icon: BellRing },
+      { to: '/reports', label: 'Reports & analytics', icon: FileBarChart2 },
+    ],
+  },
+  {
+    label: 'Hardware & assistance',
+    items: [
+      { to: '/devices', label: 'Devices & sensors', icon: RadioTower },
+      { to: '/assistant', label: 'AI farming assistant', icon: Bot },
+    ],
+  },
+  {
+    label: 'Knowledge & market',
+    items: [
+      { to: '/disease', label: 'Crop disease library', icon: BookOpen },
+      { to: '/dictionary', label: 'Agri dictionary', icon: BookMarked },
       { to: '/store', label: 'Agri store', icon: ShoppingBag },
-      { to: '/offers', label: 'Seasonal offers', icon: Tag },
       { to: '/orders', label: 'Orders', icon: Package },
+      { to: '/offers', label: 'Seasonal offers', icon: Tag },
       { to: '/wishlist', label: 'Wishlist', icon: Heart },
       { to: '/news', label: 'Farm news', icon: Newspaper },
       { to: '/schemes', label: 'Govt. schemes', icon: Landmark },
@@ -60,23 +98,31 @@ const NAV_GROUPS = [
 const NAV_ITEMS = NAV_GROUPS.flatMap((group) => group.items);
 
 const ROUTE_TITLES: Record<string, { title: string; section: string }> = {
-  '/home': { title: 'Personalized Farmer Dashboard', section: 'Home' },
-  '/farm': { title: 'Farm & Plot Digital Twin', section: 'Farm Management' },
-  '/weather': { title: 'Agro-Meteorological Intelligence', section: 'Weather' },
-  '/devices': { title: 'Devices & IoT', section: 'Farm Intelligence' },
-  '/dictionary': { title: 'Agricultural Learning Dictionary', section: 'Dictionary' },
-  '/disease': { title: '100 Crop Diseases Encyclopedia', section: 'Crop Health' },
-  '/store': { title: 'Agricultural Online Store', section: 'Store' },
-  '/cart': { title: 'Shopping Cart & Order Review', section: 'Store / Cart' },
-  '/checkout': { title: 'Simulated Order Checkout', section: 'Store / Checkout' },
-  '/orders': { title: 'Demonstration Order History', section: 'Store / Orders' },
-  '/offers': { title: 'Seasonal Vouchers & Promotions', section: 'Store / Offers' },
-  '/wishlist': { title: 'Saved Agricultural Supplies', section: 'Store / Wishlist' },
-  '/news': { title: 'Agricultural News & Advisories', section: 'News' },
-  '/schemes': { title: 'Government Schemes Discovery', section: 'Schemes' },
-  '/account': { title: 'Farmer Profile & Preferences', section: 'Account & Settings' },
+  '/home': { title: 'Farm dashboard', section: 'Overview' },
+  '/farm': { title: 'Farms, plots & records', section: 'Farm' },
+  '/twin': { title: 'Digital farm twin', section: 'Farm' },
+  '/monitoring': { title: 'Live sensor monitoring', section: 'Field intelligence' },
+  '/insights': { title: 'AI insights & stress screening', section: 'Field intelligence' },
+  '/irrigation': { title: 'Irrigation guidance', section: 'Field intelligence' },
+  '/soil': { title: 'Soil health', section: 'Field intelligence' },
+  '/crop-health': { title: 'Crop health', section: 'Field intelligence' },
+  '/weather': { title: 'Weather intelligence', section: 'Field intelligence' },
+  '/alerts': { title: 'Alerts & notifications', section: 'Field intelligence' },
+  '/reports': { title: 'Reports & analytics', section: 'Field intelligence' },
+  '/assistant': { title: 'AI farming assistant', section: 'Assistance' },
+  '/devices': { title: 'Devices & sensors', section: 'Hardware' },
+  '/account': { title: 'Farm & account settings', section: 'Settings' },
+  '/dictionary': { title: 'Agricultural dictionary', section: 'Knowledge' },
+  '/disease': { title: 'Crop disease library', section: 'Knowledge' },
+  '/store': { title: 'Agri store', section: 'Marketplace' },
+  '/cart': { title: 'Shopping cart', section: 'Marketplace' },
+  '/checkout': { title: 'Order review', section: 'Marketplace' },
+  '/orders': { title: 'Orders', section: 'Marketplace' },
+  '/offers': { title: 'Seasonal offers', section: 'Marketplace' },
+  '/wishlist': { title: 'Wishlist', section: 'Marketplace' },
+  '/news': { title: 'Farm news & advisories', section: 'Knowledge' },
+  '/schemes': { title: 'Government schemes', section: 'Knowledge' },
 };
-
 export const AppShell: React.FC = () => {
   const {
     session,
@@ -93,6 +139,11 @@ export const AppShell: React.FC = () => {
     dictionary,
     products,
     devices,
+    activeFarm,
+    plots,
+    crops,
+    observations,
+    rainfallLogs,
   } = useAgriPulse();
 
   const location = useLocation();
@@ -114,63 +165,59 @@ export const AppShell: React.FC = () => {
   );
   const deviceBadgeCount = devices.filter((device) => device.status === 'pending_pairing' || device.status === 'pending_gateway_assignment' || device.status === 'offline' || device.status === 'attention_required').length;
 
-  // Build attention notifications from saved records
-  const attentionItems = useMemo(() => {
-    const items: { id: string; title: string; subtitle: string; route: string }[] = [];
+  // Alerts are derived from the same honest field-intelligence layer the Alerts module uses.
+  const telemetry = useFarmTelemetry(devices, Boolean(session));
 
-    const highPriorityTasks = activities.filter(
-      (a) => a.status === 'Pending' && a.priority === 'High'
+  const derivedAlerts: AlertItem[] = useMemo(() => {
+    const farmPlots = activeFarm ? plots.filter((plot) => plot.farmId === activeFarm.id) : plots;
+    const farmCrops = activeFarm ? crops.filter((crop) => crop.farmId === activeFarm.id) : crops;
+    const farmObservations = activeFarm ? observations.filter((item) => item.farmId === activeFarm.id) : observations;
+    const farmRainfall = activeFarm ? rainfallLogs.filter((log) => log.farmId === activeFarm.id) : rainfallLogs;
+    const farmReports = activeFarm ? diseaseReports.filter((report) => report.farmId === activeFarm.id) : diseaseReports;
+    const farmActivities = activeFarm ? activities.filter((item) => item.farmId === activeFarm.id) : activities;
+
+    const zones = buildZoneSnapshots({
+      farm: activeFarm,
+      plots: farmPlots,
+      crops: farmCrops,
+      observations: farmObservations,
+      devices,
+      readingsByDevice: telemetry.readingsByDevice,
+      weather,
+      rainfallLogs: farmRainfall,
+      diseaseReports: farmReports,
+      activities: farmActivities,
+      telemetryLoading: telemetry.loading,
+    });
+
+    return buildAlerts(
+      {
+        farm: activeFarm,
+        plots: farmPlots,
+        crops: farmCrops,
+        observations: farmObservations,
+        devices,
+        readingsByDevice: telemetry.readingsByDevice,
+        weather,
+        rainfallLogs: farmRainfall,
+        diseaseReports: farmReports,
+        activities: farmActivities,
+        telemetryLoading: telemetry.loading,
+      },
+      zones,
     );
-    for (const task of highPriorityTasks.slice(0, 2)) {
-      items.push({
-        id: `notif-act-${task.id}`,
-        title: `Upcoming Activity: ${task.title}`,
-        subtitle: `Scheduled ${task.scheduledDate} (${task.category})`,
-        route: '/home',
-      });
-    }
+  }, [activeFarm, plots, crops, observations, rainfallLogs, diseaseReports, activities, devices, weather, telemetry.readingsByDevice, telemetry.loading]);
 
-    const inspectionReports = diseaseReports.filter((r) => r.status === 'Needs inspection');
-    if (inspectionReports.length > 0) {
-      items.push({
-        id: `notif-dis-${inspectionReports[0].id}`,
-        title: `Crop Inspection Due: ${inspectionReports[0].cropName}`,
-        subtitle: `${inspectionReports[0].plotName} — Status: Needs inspection`,
-        route: '/disease',
-      });
-    }
+  const alertCounts = useMemo(
+    () => ({
+      critical: derivedAlerts.filter((alert) => alert.severity === 'critical').length,
+      warning: derivedAlerts.filter((alert) => alert.severity === 'warning').length,
+      total: derivedAlerts.length,
+    }),
+    [derivedAlerts],
+  );
 
-    if (weather.warnings.length > 0) {
-      items.push({
-        id: `notif-wx-${weather.warnings[0].id}`,
-        title: weather.warnings[0].title,
-        subtitle: `${weather.sourceType} advisory`,
-        route: '/weather',
-      });
-    }
-
-    const deviceUpdates = devices.filter((device) => device.status === 'attention_required' || device.status === 'offline' || device.status === 'pending_gateway_assignment' || device.status === 'pending_pairing').slice(0, 2);
-    for (const device of deviceUpdates) {
-      const statusLabel = device.status.replace(/_/g, ' ');
-      items.push({
-        id: `notif-device-${device.id}`,
-        title: `Device ${device.name}: ${statusLabel}`,
-        subtitle: `${device.isDemoRecord ? 'Demo record' : 'Device record'} · no status is changed manually`,
-        route: `/devices/${device.id}`,
-      });
-    }
-
-    if (orders.length > 0) {
-      items.push({
-        id: `notif-ord-${orders[0].id}`,
-        title: `Demo Order ${orders[0].id}: ${orders[0].orderStatus}`,
-        subtitle: `${orders[0].items.length} item(s) — Demonstration workflow`,
-        route: '/orders',
-      });
-    }
-
-    return items;
-  }, [activities, diseaseReports, weather, orders, devices]);
+  const topAlerts = derivedAlerts.slice(0, 5);
 
   // Quick search suggestions across pages, products, and dictionary
   const quickSearchResults = useMemo(() => {
@@ -255,7 +302,14 @@ export const AppShell: React.FC = () => {
               <div className="px-3 pb-2 pt-3 text-[10px] font-bold uppercase tracking-[0.16em] text-forest-300/80">{group.label}</div>
               {group.items.map((item) => {
                 const Icon = item.icon;
-                const badgeCount = item.to === '/devices' ? deviceBadgeCount : item.to === '/orders' ? orders.length : 0;
+                const badgeCount =
+                  item.to === '/devices'
+                    ? deviceBadgeCount
+                    : item.to === '/alerts'
+                    ? alertCounts.critical + alertCounts.warning
+                    : item.to === '/orders'
+                    ? orders.length
+                    : 0;
                 return (
                   <NavLink
                     key={item.to}
@@ -266,7 +320,9 @@ export const AppShell: React.FC = () => {
                       <Icon className="w-[17px] h-[17px] shrink-0" />
                       <span className="truncate">{item.label}</span>
                     </span>
-                    {badgeCount > 0 && <span className={`app-nav-count ${item.to === '/devices' ? 'is-device' : ''}`}>{badgeCount}</span>}
+                    {badgeCount > 0 && (
+                      <span className={`app-nav-count ${item.to === '/devices' || item.to === '/alerts' ? 'is-device' : ''}`}>{badgeCount}</span>
+                    )}
                   </NavLink>
                 );
               })}
@@ -417,6 +473,34 @@ export const AppShell: React.FC = () => {
                 </span>
               </button>
 
+              {/* Data freshness: the API only reports readings it actually received. */}
+              <div
+                className="hidden xl:flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl"
+                title={
+                  telemetry.error
+                    ? `Reading service unavailable: ${telemetry.error}`
+                    : telemetry.lastFetchedAt
+                    ? `Last checked ${formatTimestamp(telemetry.lastFetchedAt)}`
+                    : 'No reading request made yet'
+                }
+              >
+                <span
+                  className={`ap-dot ${
+                    telemetry.error ? 'ap-dot--danger' : telemetry.loading ? 'ap-dot--info' : 'ap-dot--ok'
+                  }`}
+                  aria-hidden="true"
+                />
+                <span>
+                  {telemetry.error
+                    ? 'Readings unavailable'
+                    : telemetry.loading
+                    ? 'Checking readings…'
+                    : telemetry.lastFetchedAt
+                    ? `Readings ${describeFreshness(telemetry.lastFetchedAt).label.toLowerCase()}`
+                    : 'Readings not loaded'}
+                </span>
+              </div>
+
               {/* Demo-only portal switch; the API enforces production account roles. */}
               {session?.isDemo && <button
                 type="button"
@@ -451,12 +535,18 @@ export const AppShell: React.FC = () => {
                     setNotifOpen((prev) => !prev);
                     setProfileMenuOpen(false);
                   }}
-                  aria-label="Farm notifications and attention items"
+                  aria-label={`Field alerts and notifications (${alertCounts.total} open)`}
                   className="relative p-2 rounded-xl text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors"
                 >
                   <Bell className="w-4 h-4" />
-                  {attentionItems.length > 0 && (
-                    <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500" />
+                  {alertCounts.total > 0 && (
+                    <span
+                      className={`absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${
+                        alertCounts.critical > 0 ? 'bg-rose-600 text-white' : 'bg-amber-500 text-forest-950'
+                      }`}
+                    >
+                      {alertCounts.total > 99 ? '99+' : alertCounts.total}
+                    </span>
                   )}
                 </button>
 
@@ -464,7 +554,7 @@ export const AppShell: React.FC = () => {
                   <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50">
                     <div className="px-3.5 py-2 border-b border-slate-100 flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-900">
-                        Farm Attention Items ({attentionItems.length})
+                        Field alerts ({alertCounts.total})
                       </span>
                       <button
                         type="button"
@@ -474,34 +564,56 @@ export const AppShell: React.FC = () => {
                         Close
                       </button>
                     </div>
-                    <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
-                      {attentionItems.length === 0 ? (
+                    <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                      {topAlerts.length === 0 ? (
                         <div className="p-4 text-xs text-slate-500 text-center">
-                          No urgent farm alerts right now.
+                          No field alerts right now. Alerts appear here when readings, advisories or pending work need attention.
                         </div>
                       ) : (
-                        attentionItems.map((item) => (
+                        topAlerts.map((alert) => (
                           <button
-                            key={item.id}
+                            key={alert.id}
                             type="button"
                             onClick={() => {
                               setNotifOpen(false);
-                              navigate(item.route);
+                              navigate(alert.actionRoute);
                             }}
                             className="w-full px-3.5 py-2.5 text-left hover:bg-slate-50 flex items-start gap-2.5"
                           >
-                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                            {alert.severity === 'critical' ? (
+                              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" aria-hidden="true" />
+                            ) : alert.severity === 'warning' ? (
+                              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
+                            ) : alert.severity === 'advisory' ? (
+                              <Info className="w-4 h-4 text-sky-700 shrink-0 mt-0.5" aria-hidden="true" />
+                            ) : (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" aria-hidden="true" />
+                            )}
                             <div className="min-w-0">
-                              <p className="text-xs font-semibold text-slate-800 truncate">
-                                {item.title}
-                              </p>
-                              <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                                {item.subtitle}
+                              <p className="text-xs font-semibold text-slate-800">{alert.title}</p>
+                              <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{alert.detail}</p>
+                              <p className="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-wide">
+                                {alert.category} · {formatTimestamp(alert.occurredAt)}
                               </p>
                             </div>
                           </button>
                         ))
                       )}
+                    </div>
+                    <div className="px-3.5 py-2 border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-[11px] text-slate-500">
+                        {alertCounts.critical} critical · {alertCounts.warning} warning
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNotifOpen(false);
+                          navigate('/alerts');
+                        }}
+                        className="text-[11px] font-bold text-forest-700 hover:text-forest-900"
+                      >
+                        Open alerts module
+                      </button>
                     </div>
                   </div>
                 )}
@@ -565,6 +677,17 @@ export const AppShell: React.FC = () => {
                         <Package className="w-4 h-4 text-slate-500" />
                         <span>Demo Orders ({orders.length})</span>
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileMenuOpen(false);
+                          navigate('/');
+                        }}
+                        className="w-full px-4 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                      >
+                        <Info className="w-4 h-4 text-slate-500" />
+                        <span>Product website</span>
+                      </button>
                     </div>
                     <div className="border-t border-slate-100 pt-1">
                       <button
@@ -615,8 +738,9 @@ export const AppShell: React.FC = () => {
             Workspace changes could not be saved: {workspaceSyncError}
           </div>
         ) : workspaceSyncStatus === 'saving' ? (
-          <div role="status" className="mx-4 mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-900 sm:mx-6 lg:mx-8">
-            Saving workspace changes to the AGRIPULSE API…
+          <div role="status" className="mx-4 mt-3 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-900 sm:mx-6 lg:mx-8">
+            <AgriPulseLoader size="sm" />
+            <span>Saving workspace changes to the AGRIPULSE API…</span>
           </div>
         ) : null}
 
@@ -647,26 +771,40 @@ export const AppShell: React.FC = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 space-y-1">
-              {NAV_ITEMS.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    onClick={() => setMobileDrawerOpen(false)}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold ${
-                        isActive
-                          ? 'bg-forest-800 text-white'
-                          : 'text-forest-200 hover:bg-forest-900 hover:text-white'
-                      }`
-                    }
-                  >
-                    <Icon className="w-4 h-4 text-leaf-400" />
-                    <span>{item.label}</span>
-                  </NavLink>
-                );
-              })}
+              {NAV_GROUPS.map((group) => (
+                <div key={group.label} className="pb-1">
+                  <div className="px-3 pb-1.5 pt-3 text-[10px] font-bold uppercase tracking-[0.16em] text-forest-300/80">
+                    {group.label}
+                  </div>
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const badgeCount =
+                      item.to === '/devices'
+                        ? deviceBadgeCount
+                        : item.to === '/alerts'
+                        ? alertCounts.critical + alertCounts.warning
+                        : 0;
+                    return (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        onClick={() => setMobileDrawerOpen(false)}
+                        className={({ isActive }) =>
+                          `flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold ${
+                            isActive ? 'bg-forest-800 text-white' : 'text-forest-200 hover:bg-forest-900 hover:text-white'
+                          }`
+                        }
+                      >
+                        <span className="flex items-center gap-3 min-w-0">
+                          <Icon className="w-4 h-4 text-leaf-400 shrink-0" />
+                          <span className="truncate">{item.label}</span>
+                        </span>
+                        {badgeCount > 0 && <span className="app-nav-count is-device">{badgeCount}</span>}
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              ))}
 
               <div className="pt-2 mt-2 border-t border-forest-800 space-y-1">
                 <NavLink
@@ -683,6 +821,14 @@ export const AppShell: React.FC = () => {
                       {cartItemCount}
                     </span>
                   )}
+                </NavLink>
+                <NavLink
+                  to="/account"
+                  onClick={() => setMobileDrawerOpen(false)}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-forest-200 hover:bg-forest-900"
+                >
+                  <UserCog className="w-4 h-4 text-leaf-400" />
+                  <span>Farm &amp; account settings</span>
                 </NavLink>
                 <NavLink
                   to="/orders"
@@ -718,10 +864,10 @@ export const AppShell: React.FC = () => {
         className="app-mobile-bottom-nav lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-slate-200 px-2 py-1.5 grid grid-cols-5 gap-1 shadow-lg"
       >
         {[
-          { to: '/home', label: 'Home', icon: Home },
-          { to: '/farm', label: 'Farm', icon: Tractor },
-          { to: '/devices', label: 'Devices', icon: RadioTower },
-          { to: '/weather', label: 'Weather', icon: CloudSun },
+          { to: '/home', label: 'Dashboard', icon: LayoutDashboard },
+          { to: '/twin', label: 'Twin', icon: Map },
+          { to: '/monitoring', label: 'Sensors', icon: Activity },
+          { to: '/alerts', label: 'Alerts', icon: BellRing },
         ].map((item) => {
           const Icon = item.icon;
           return (
@@ -750,7 +896,9 @@ export const AppShell: React.FC = () => {
       </nav>
 
       {/* Floating Agricultural AI Chatbox */}
-      <FloatingAIChat />
+      <Suspense fallback={null}>
+        <FloatingAIChat />
+      </Suspense>
     </div>
   );
 };

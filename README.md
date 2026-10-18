@@ -1,36 +1,98 @@
 # AGRIPULSE — Intelligent Farm Digital Twin & Early Crop-Stress Detection
 
-**Tagline:** *Measure. Understand. Predict. Protect.*
+**Tagline:** *See more. Predict earlier. Grow smarter.*
 
-AGRIPULSE is a responsive dual-portal prototype for Indian farmers and agricultural sellers. The React app preserves farmer workflows for farm/plot records, weather guidance, crop-health references, the bilingual dictionary, a sample marketplace, schemes/news, and Devices & IoT, alongside a seller workspace for catalog and order-flow concepts.
+AGRIPULSE is a full-stack smart-agriculture platform: a public product website, an authenticated
+farmer workspace, and a seller workspace, all built on one design system. The farmer portal
+combines farm and plot records, IoT sensor monitoring, a data-driven digital farm twin, transparent
+rule-based crop-stress screening, irrigation guidance, soil and crop health, weather advisories,
+alerts, reports, a device registry with secure pairing, a crop-disease reference library, a
+bilingual dictionary and a demonstration marketplace.
 
-> **Honest status:** This repository now includes an authenticated Express API, server-backed account workspaces, and a SQLite-backed device registry/pairing/telemetry prototype. It is still a development product, not a production agricultural, commerce, weather, AI, or hardware service. Real email verification/recovery, seller verification, cross-account marketplace fulfillment, shipping, payments/payouts, a live weather provider, a hosted AI model, physical device firmware, and a production IoT trust/broker service are not configured.
+> **Honest status:** the application code, the local Express API and the SQLite development database
+> in this repository are real and tested. Physical device firmware, a production IoT trust service,
+> a live weather provider, a hosted AI/vision model, production payments, and managed
+> database/infrastructure are **not** included. The interface labels measured, farmer-recorded,
+> forecast, rule-based and sample values separately, and shows "no data" instead of inventing a
+> number. Read [`docs/WEBSITE_MAP.md`](docs/WEBSITE_MAP.md),
+> [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) and
+> [`docs/DEVICE_API_CONTRACTS.md`](docs/DEVICE_API_CONTRACTS.md) for detail.
 
-## What is server-backed
+## What the platform does
 
-- **Accounts:** Farmer and seller registration and password login use the API. Passwords are scrypt-hashed. Session tokens are random, stored hashed server-side, and sent in an `HttpOnly`, `SameSite=Lax` cookie. Email verification and account recovery are not implemented.
-- **Workspaces:** Farm/profile/preferences and other account-scoped workspace state are saved as revisioned server snapshots. The development API uses SQLite (`.data/agripulse.sqlite` by default). Workspace writes reject secret-like fields and prevent stale revision overwrites.
-- **Devices:** Farmer-owned device metadata, derived status, gateway relationships, one-time pairing sessions, event history, and validated telemetry live in API-managed database tables—not browser `localStorage`. The UI never marks a device online manually. The local pairing/ingestion API is not connected to physical hardware and must not be treated as proof of installation.
-- **Development demo:** Clearly labelled launchers call a development-only API route. Demo content is stored in a shared local demo workspace and is not a production account. Demo launch is disabled with `NODE_ENV=production` or `ALLOW_DEMO_SESSIONS=false`.
+**Public website** — Home, Platform, AI capabilities, Digital twin, How it works, Technology,
+Innovation & impact, Roadmap, About, FAQ, Contact. Each capability page states what is implemented,
+what is a demonstration and what is planned.
 
-Read [`docs/DEVICE_API_CONTRACTS.md`](docs/DEVICE_API_CONTRACTS.md) for implemented routes and security/deployment limitations. The original product scope is retained in [`docs/BLUEPRINT.md`](docs/BLUEPRINT.md).
+**Farmer portal**
 
-## Data provenance and safety
+- **Dashboard** — farm hero with farm switcher, quick actions, measured metrics, a field-intelligence
+  strip (zone condition, open alerts, screening highlights, reading trend), condition overview and
+  task list.
+- **Farms & field zones** — farm, plot, crop, observation, activity and rainfall records with a plot
+  schematic and record editing.
+- **Digital farm twin** — zone schematic with device markers, selected-zone measurements, devices,
+  alerts and latest observation; accessible as a list, explicitly not satellite imagery.
+- **Live monitoring** — per-node API status, latest value per configured sensor with unit, source and
+  freshness, Live / 24 h / 7 d / 30 d windows, and per-zone measurement coverage.
+- **AI insights** — rule-based early crop-stress screening with the evidence, assumptions, method and
+  confidence of every finding.
+- **Irrigation guidance** — per-zone action (irrigate now / soon, hold, drain, monitor, record a
+  reading) with a rainfall log and forecast outlook.
+- **Soil health** — moisture, temperature and pH where sensors exist, filterable table with CSV
+  export, and an explicit list of parameters that need a laboratory test.
+- **Crop health** — derived per-crop condition, open symptom reports, observation log, and search
+  across the disease reference library.
+- **Weather**, **Alerts**, **Reports & analytics**, **Devices & sensors**, **AI assistant**,
+  **Crop disease library**, **Dictionary**, **Marketplace** (demonstration), **Farm & account
+  settings**.
 
-- Manual farmer observations, sample/demo records, physical sensor telemetry, and weather-provider data are separate sources and should remain visibly labelled.
-- The current build has **no physical rain-gauge or rainfall-mm sensor**. Forecast precipitation is not measured farm rainfall; unavailable readings are not replaced with zero.
-- With no weather endpoint configured, the app uses clearly labelled sample forecasts. The optional `VITE_WEATHER_API_URL` is a frontend endpoint hook, not a bundled or verified provider integration. Never put private provider credentials in a `VITE_*` variable.
-- The floating AGRIPULSE assistant uses local rule-based/reference responses; it is not a hosted generative AI service or individualized agronomic diagnosis.
-- The marketplace catalog, checkout/order flows, seller ratings, invoices, and settlement screens are demonstrations. Account edits can be persisted in a workspace, but do not publish listings to a shared storefront, create cross-account fulfillment, arrange shipment, charge money, verify sellers, or transfer funds.
-- Never enter network passwords, provisioning tokens, private keys, SIM PINs, bank credentials, or real payment details in the development demo. The demo workspace is shared and its local database is not production-grade storage.
+**Seller portal** — a seller-focused workspace inside the same Farmer Portal shell and navigation
+system, with seller-only API authorization. Dashboard Overview, Catalog & Inventory, Demo / Workspace
+Orders, Financials & Payouts, and Store Profile & GSTIN retain their existing state-based behavior,
+data, and seller actions while sharing the forest sidebar, contextual Seller Central header, accessible
+mobile drawer, and five-item mobile navigation.
 
-## Portals and routes
+## Data provenance (a product requirement, not a disclaimer)
 
-- **Farmer:** `/home`, `/farm`, `/weather`, `/devices`, `/devices/:deviceId`, `/dictionary`, `/disease`, `/store`, `/cart`, `/checkout`, `/orders`, `/wishlist`, `/offers`, `/news`, `/schemes`, `/account`
-- **Seller:** `/seller` and `/seller/dashboard`
-- **Authentication:** `/farmer/login`, `/farmer/signup`, `/login`, `/seller/login`, `/signup`, `/seller/signup`
+| Tag | Meaning |
+|---|---|
+| **Sensor measured** | Physical-sensor reading accepted by the ingestion API |
+| **Farmer recorded** | Value a farmer entered or confirmed by hand |
+| **Forecast** | Weather-provider or forecast estimate for the farm location |
+| **Rule-based** | Deterministic AGRIPULSE guidance derived from documented thresholds |
+| **Sample data** | Demonstration content shipped with the development build |
+| **Not available** | No data exists — rendered as `—`, never as `0` |
 
-Seller accounts are restricted to the seller role. Portal switching is available only to the development demo account, which has both roles.
+Additional rules enforced in code:
+
+- Stored readings are the only source for "measured" values; the client never synthesises telemetry.
+- Readings flagged `invalid`, or with non-finite values, are ignored rather than charted.
+- Charts leave gaps for missing readings and never bridge them.
+- Device status is derived from backend heartbeats; the UI cannot mark a device online.
+- Screening compares a single reading against a published stage band and says so, including the
+  assumption that the band is not calibrated to the field.
+- No rainfall sensor exists: precipitation is either provider forecast or a farmer log.
+
+## Architecture
+
+| Layer | Location | Notes |
+|---|---|---|
+| Public site + portals | `src/pages`, `src/components` | React 18 + TypeScript, React Router 6 |
+| Design system | `src/index.css` (`.ap-*`), `tailwind.config.js`, `src/components/ui` | Tokens and shared primitives, documented in `docs/DESIGN_SYSTEM.md` |
+| Derived intelligence | `src/services/fieldIntelligence.ts`, `src/hooks/useFarmScope.ts` | One derived view of the selected farm for every module |
+| Telemetry loading | `src/hooks/useFarmTelemetry.ts` | Shared store: one request per device, no polling |
+| API | `server/*.mjs` | Express 5, Zod schemas, session cookies, rate limits, SQLite |
+| Tests | `server/test`, `scripts/*.test.ts`, `scripts/ssrSmoke.tsx` | API, domain-unit and render smoke tests |
+
+### Database driver
+
+The API prefers `better-sqlite3`. Where native modules cannot be compiled (some sandboxes and CI
+images without downloadable Node headers), `server/db.mjs` falls back to Node's built-in
+`node:sqlite` through a small compatibility shim that implements `pragma`, `exec`, `prepare().run()`
+/ `get()` / `all()`, `transaction()` and `close()`. Both drivers speak identical SQL and positional
+parameters, so application behaviour is unchanged. **This fallback is a local-development
+convenience only** — production must use a managed database, not a file-backed shim.
 
 ## Local development
 
@@ -41,18 +103,54 @@ npm install
 npm run dev
 ```
 
-`npm run dev` starts the API on `0.0.0.0:4000` and Vite on `0.0.0.0:3000`; Vite proxies `/api` to the API. Set `AGRIPULSE_API_PROXY` if the API runs at another address. The API accepts `API_HOST`, `API_PORT`, `AGRIPULSE_DB_PATH`, `DEVICE_ONLINE_WINDOW_SECONDS`, and `ALLOW_DEMO_SESSIONS` environment settings.
+`npm run dev` starts the API on `0.0.0.0:4000` and Vite on `0.0.0.0:3000`, with `/api` proxied to
+the API. Environment settings: `API_HOST`, `API_PORT`, `AGRIPULSE_DB_PATH`,
+`DEVICE_ONLINE_WINDOW_SECONDS`, `ALLOW_DEMO_SESSIONS`, `AGRIPULSE_API_PROXY`.
 
-For production builds and verification:
+### Verification
 
 ```bash
-npm run lint
-npm test
-npm run build
+npm run lint          # TypeScript type check + server syntax checks
+npm test              # API tests (accounts, roles, ownership, pairing, telemetry, demo access)
+npm run test:web      # field-intelligence unit tests (provenance, bands, alerts, screening)
+npm run test:render   # renders every public page and portal module to catch render-time breakage
+npm run test:all      # all three suites
+npm run build         # production bundle
 ```
 
-`npm run preview` serves the static frontend only; run the API separately when testing authenticated features. SQLite database files, build output, and environment files are excluded from Git.
+`npm run preview` serves the static frontend only; run the API separately when testing authenticated
+features. `.data/`, `dist/` and `.smoke/` are excluded from Git.
+
+## Configuration hooks
+
+| Variable | Effect |
+|---|---|
+| `VITE_WEATHER_API_URL` | Frontend endpoint for a weather service; with no value the app shows a **clearly labelled sample forecast** |
+| `VITE_AI_BACKEND_ENDPOINT` | Optional endpoint for richer assistant answers; unused values keep the local rule engine |
+| `ALLOW_DEMO_SESSIONS` | Disables the labelled development demo workspace when set to `false` (also disabled under `NODE_ENV=production`) |
+
+Never place provider credentials in a `VITE_*` variable: those values ship to the browser. Weather,
+AI and commerce integrations belong on the server.
+
+## Known limitations (unchanged or additional)
+
+- No physical hardware is connected. Pairing codes and device secrets are a local prototype, not
+  device attestation, mTLS or signed firmware.
+- No production provisioning, broker, credential rotation, telemetry retention policy or
+  hardware-in-the-loop test exists yet.
+- Weather, AI/vision, payments, shipping and seller verification are not configured.
+- Crop-stress screening, irrigation and advisories are **rule-based**; there is no trained model for
+  disease, pest, yield or multi-day stress forecasting.
+- Reference moisture bands are published general guidance for mineral soils, not field-calibrated
+  thresholds, and the interface says so next to every recommendation.
+- Alert preferences control in-portal highlights only; SMS, email and push delivery are not wired.
+- The demo workspace shares one local database and is not a production account.
 
 ## Before any production deployment
 
-Use a managed database with backup/restore and migrations, TLS, a production session/cookie policy, account recovery and email verification, robust monitoring and audit review, and a reviewed authorization model. Hardware rollout additionally needs device attestation and credential rotation, a trusted provisioning workflow, authenticated transport (such as MQTT over TLS or HTTPS), signed/validated firmware, telemetry abuse controls, and real-device acceptance tests. Commerce, weather, and AI require their own vetted server-side integrations. Do not describe the current local API or UI prototype as production-ready.
+Use a managed database with migrations, backups and point-in-time recovery; TLS everywhere; a
+production session and cookie policy; account verification, recovery and MFA for administrators;
+device attestation with credential rotation and an authenticated broker; monitoring, log retention
+and telemetry retention policies; a reviewed authorization model; independent security testing; and
+real-device acceptance tests. Do not describe this repository as production-ready agricultural,
+commerce, weather, AI or hardware infrastructure.

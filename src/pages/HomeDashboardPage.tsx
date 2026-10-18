@@ -36,6 +36,7 @@ import {
   RadioTower,
 } from 'lucide-react';
 import { useAgriPulse } from '../context/AgriPulseContext';
+import { FieldIntelligencePanel } from '../components/FieldIntelligencePanel';
 import {
   convertArea,
   formatDate,
@@ -558,6 +559,9 @@ export const HomeDashboardPage: React.FC = () => {
           <p>{activeDemoOrders} active demo {activeDemoOrders === 1 ? 'order' : 'orders'}</p>
         </article>
       </section>
+
+      {/* 3b. Derived field intelligence: readings, alerts, screening and trends */}
+      <FieldIntelligencePanel compact />
 
       {/* 4. Farm Condition Overview & Weather Preview Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">

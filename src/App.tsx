@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import {
   BrowserRouter,
   Navigate,
@@ -8,40 +8,118 @@ import {
 } from 'react-router-dom';
 import { AgriPulseProvider, useAgriPulse } from './context/AgriPulseContext';
 import { AppShell } from './components/AppShell';
+import { SiteLayout } from './components/SiteLayout';
+import { AgriPulseLoader } from './components/AgriPulseLoader';
+import { PortalType } from './types';
+
+/**
+ * Route-level code splitting.
+ *
+ * The public website, the heaviest knowledge modules (disease encyclopedia, dictionary,
+ * marketplace) and each portal module load on demand. Charts, icons and React remain in their own
+ * vendor chunks, so a farmer opening the dashboard does not download the marketplace or the
+ * 100-entry disease library.
+ */
+const HomeDashboardPage = lazy(() => import('./pages/HomeDashboardPage').then((m) => ({ default: m.HomeDashboardPage })));
+const FarmManagementPage = lazy(() => import('./pages/FarmManagementPage').then((m) => ({ default: m.FarmManagementPage })));
+const MonitoringPage = lazy(() => import('./pages/MonitoringPage').then((m) => ({ default: m.MonitoringPage })));
+const DigitalTwinPage = lazy(() => import('./pages/DigitalTwinPage').then((m) => ({ default: m.DigitalTwinPage })));
+const AiInsightsPage = lazy(() => import('./pages/AiInsightsPage').then((m) => ({ default: m.AiInsightsPage })));
+const IrrigationPage = lazy(() => import('./pages/IrrigationPage').then((m) => ({ default: m.IrrigationPage })));
+const SoilHealthPage = lazy(() => import('./pages/SoilHealthPage').then((m) => ({ default: m.SoilHealthPage })));
+const CropHealthPage = lazy(() => import('./pages/CropHealthPage').then((m) => ({ default: m.CropHealthPage })));
+const AlertsPage = lazy(() => import('./pages/AlertsPage').then((m) => ({ default: m.AlertsPage })));
+const ReportsPage = lazy(() => import('./pages/ReportsPage').then((m) => ({ default: m.ReportsPage })));
+const AssistantPage = lazy(() => import('./pages/AssistantPage').then((m) => ({ default: m.AssistantPage })));
+const WeatherIntelligencePage = lazy(() => import('./pages/WeatherIntelligencePage').then((m) => ({ default: m.WeatherIntelligencePage })));
+const DictionaryPage = lazy(() => import('./pages/DictionaryPage').then((m) => ({ default: m.DictionaryPage })));
+const DiseaseAnalysisPage = lazy(() => import('./pages/DiseaseAnalysisPage').then((m) => ({ default: m.DiseaseAnalysisPage })));
+const StorePage = lazy(() => import('./pages/StorePage').then((m) => ({ default: m.StorePage })));
+const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage').then((m) => ({ default: m.ProductDetailPage })));
+const CartAndCheckoutPage = lazy(() => import('./pages/CartAndCheckoutPage').then((m) => ({ default: m.CartAndCheckoutPage })));
+const OrdersPage = lazy(() => import('./pages/OrdersPage').then((m) => ({ default: m.OrdersPage })));
+const WishlistPage = lazy(() => import('./pages/WishlistPage').then((m) => ({ default: m.WishlistPage })));
+const OffersPage = lazy(() => import('./pages/OffersPage').then((m) => ({ default: m.OffersPage })));
+const NewsPage = lazy(() => import('./pages/NewsPage').then((m) => ({ default: m.NewsPage })));
+const SchemesPage = lazy(() => import('./pages/SchemesPage').then((m) => ({ default: m.SchemesPage })));
+const AccountSettingsPage = lazy(() => import('./pages/AccountSettingsPage').then((m) => ({ default: m.AccountSettingsPage })));
+const DeviceManagementPage = lazy(() => import('./pages/DeviceManagementPage').then((m) => ({ default: m.DeviceManagementPage })));
+const DeviceDetailsPage = lazy(() => import('./pages/DeviceDetailsPage').then((m) => ({ default: m.DeviceDetailsPage })));
+const SellerPortalPage = lazy(() => import('./pages/SellerPortalPage').then((m) => ({ default: m.SellerPortalPage })));
+const SiteHomePage = lazy(() => import('./pages/site/SiteHomePage').then((m) => ({ default: m.SiteHomePage })));
+const PlatformPage = lazy(() => import('./pages/site/sitePages').then((m) => ({ default: m.PlatformPage })));
+const AiCapabilitiesPage = lazy(() => import('./pages/site/sitePages').then((m) => ({ default: m.AiCapabilitiesPage })));
+const DigitalTwinPublicPage = lazy(() => import('./pages/site/sitePages').then((m) => ({ default: m.DigitalTwinPublicPage })));
+const HowItWorksPage = lazy(() => import('./pages/site/sitePages').then((m) => ({ default: m.HowItWorksPage })));
+const TechnologyPage = lazy(() => import('./pages/site/sitePages').then((m) => ({ default: m.TechnologyPage })));
+const ImpactPage = lazy(() => import('./pages/site/sitePages').then((m) => ({ default: m.ImpactPage })));
+const RoadmapPage = lazy(() => import('./pages/site/sitePages').then((m) => ({ default: m.RoadmapPage })));
+const AboutPage = lazy(() => import('./pages/site/sitePages').then((m) => ({ default: m.AboutPage })));
+const FaqPage = lazy(() => import('./pages/site/supportPages').then((m) => ({ default: m.FaqPage })));
+const ContactPage = lazy(() => import('./pages/site/supportPages').then((m) => ({ default: m.ContactPage })));
+const SiteNotFoundPage = lazy(() => import('./pages/site/supportPages').then((m) => ({ default: m.SiteNotFoundPage })));
+
+// Authentication screens stay in the initial bundle: they are the first thing a new user opens.
 import { LoginPage } from './pages/LoginPage';
 import { SellerSignUpPage } from './pages/SellerSignUpPage';
 import { FarmerLoginPage } from './pages/FarmerLoginPage';
 import { FarmerSignUpPage } from './pages/FarmerSignUpPage';
-import { SellerPortalPage } from './pages/SellerPortalPage';
-import { HomeDashboardPage } from './pages/HomeDashboardPage';
-import { FarmManagementPage } from './pages/FarmManagementPage';
-import { WeatherIntelligencePage } from './pages/WeatherIntelligencePage';
-import { DictionaryPage } from './pages/DictionaryPage';
-import { DiseaseAnalysisPage } from './pages/DiseaseAnalysisPage';
-import { StorePage } from './pages/StorePage';
-import { ProductDetailPage } from './pages/ProductDetailPage';
-import { CartAndCheckoutPage } from './pages/CartAndCheckoutPage';
-import { OrdersPage } from './pages/OrdersPage';
-import { WishlistPage } from './pages/WishlistPage';
-import { OffersPage } from './pages/OffersPage';
-import { NewsPage } from './pages/NewsPage';
-import { SchemesPage } from './pages/SchemesPage';
-import { AccountSettingsPage } from './pages/AccountSettingsPage';
-import { DeviceManagementPage } from './pages/DeviceManagementPage';
-import { DeviceDetailsPage } from './pages/DeviceDetailsPage';
-import { PortalType } from './types';
+
+
+/** Farmer portal routes: unauthenticated visitors are sent to the farmer sign-in screen. */
+const FARMER_ROUTES = [
+  '/home',
+  '/farm',
+  '/twin',
+  '/monitoring',
+  '/insights',
+  '/irrigation',
+  '/soil',
+  '/crop-health',
+  '/weather',
+  '/alerts',
+  '/reports',
+  '/assistant',
+  '/devices',
+  '/dictionary',
+  '/disease',
+  '/store',
+  '/cart',
+  '/checkout',
+  '/orders',
+  '/wishlist',
+  '/offers',
+  '/news',
+  '/schemes',
+  '/account',
+];
+
+const SessionGate: React.FC = () => (
+  <div className="grid min-h-screen place-items-center bg-warmbg px-6 text-center">
+    <div className="w-full max-w-sm">
+      <AgriPulseLoader variant="panel" size="lg" label="Loading secure AGRIPULSE session…" />
+      <p className="mt-2 text-xs text-slate-500">Checking your authenticated workspace with the API.</p>
+    </div>
+  </div>
+);
+
+/** Shown while a lazily loaded page chunk downloads. */
+const PageLoading: React.FC = () => (
+  <div className="grid min-h-[52vh] place-items-center px-6 text-center">
+    <AgriPulseLoader size="md" label="Opening module…" />
+  </div>
+);
 
 const ProtectedRouteGuard: React.FC<{ children: React.ReactNode; portal?: PortalType }> = ({ children, portal }) => {
   const { session, sessionLoading, workspaceHydrated } = useAgriPulse();
   const location = useLocation();
 
-  if (sessionLoading || (session && !workspaceHydrated)) {
-    return <div role="status" className="min-h-screen grid place-items-center bg-warmbg text-forest-900 font-semibold">Loading secure AGRIPULSE session…</div>;
-  }
+  if (sessionLoading || (session && !workspaceHydrated)) return <SessionGate />;
 
   if (!session) {
-    const farmerRoutes = ['/home', '/farm', '/weather', '/devices', '/dictionary', '/disease', '/store', '/cart', '/checkout', '/orders', '/wishlist', '/offers', '/news', '/schemes', '/account'];
-    const isFarmerPath = farmerRoutes.some((path) => location.pathname === path || location.pathname.startsWith(`${path}/`));
+    const isFarmerPath = FARMER_ROUTES.some(
+      (path) => location.pathname === path || location.pathname.startsWith(`${path}/`),
+    );
     return <Navigate to={isFarmerPath || portal === 'farmer' ? '/farmer/login' : '/login'} state={{ from: location.pathname }} replace />;
   }
 
@@ -52,39 +130,55 @@ const ProtectedRouteGuard: React.FC<{ children: React.ReactNode; portal?: Portal
   return <>{children}</>;
 };
 
-const RootRedirect: React.FC = () => {
+/**
+ * The product website is public for everyone, signed in or not, so shared links keep working.
+ * The header swaps its call to action to "Open my portal" for an authenticated visitor.
+ */
+const PublicSiteLayout: React.FC = () => {
   const { session, sessionLoading, workspaceHydrated } = useAgriPulse();
-  if (sessionLoading || (session && !workspaceHydrated)) {
-    return <div role="status" className="min-h-screen grid place-items-center bg-warmbg text-forest-900 font-semibold">Loading secure AGRIPULSE session…</div>;
-  }
-  if (!session) {
-    return <Navigate to="/login" replace />;
-  }
-  return <Navigate to={session.portalType === 'seller' ? '/seller' : '/home'} replace />;
+  if (sessionLoading || (session && !workspaceHydrated)) return <SessionGate />;
+  return <SiteLayout />;
 };
 
 export const App: React.FC = () => {
   return (
     <AgriPulseProvider>
       <BrowserRouter>
+        <Suspense fallback={<PageLoading />}>
         <Routes>
-          {/* Public Authentication Routes */}
-          {/* Seller Log In */}
+          {/* ---------------------------------------------------------------
+              Public website. Signed-in users are redirected to their portal.
+             --------------------------------------------------------------- */}
+          <Route element={<PublicSiteLayout />}>
+            <Route path="/" element={<SiteHomePage />} />
+            <Route path="/platform" element={<PlatformPage />} />
+            <Route path="/ai-capabilities" element={<AiCapabilitiesPage />} />
+            <Route path="/digital-twin" element={<DigitalTwinPublicPage />} />
+            <Route path="/how-it-works" element={<HowItWorksPage />} />
+            <Route path="/technology" element={<TechnologyPage />} />
+            <Route path="/impact" element={<ImpactPage />} />
+            <Route path="/roadmap" element={<RoadmapPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/faq" element={<FaqPage />} />
+            <Route path="/contact" element={<ContactPage />} />
+          </Route>
+
+          {/* Legacy alias kept so previously shared links still resolve */}
+          <Route path="/product" element={<Navigate to="/platform" replace />} />
+
+          {/* ---------------------------------------------------------------
+              Authentication
+             --------------------------------------------------------------- */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/seller/login" element={<LoginPage />} />
-
-          {/* Seller Sign Up */}
           <Route path="/signup" element={<SellerSignUpPage />} />
           <Route path="/seller/signup" element={<SellerSignUpPage />} />
-
-          {/* Farmer Sign In & Sign Up */}
           <Route path="/farmer/login" element={<FarmerLoginPage />} />
           <Route path="/farmer/signup" element={<FarmerSignUpPage />} />
 
-          {/* Root Redirect to respective portal */}
-          <Route path="/" element={<RootRedirect />} />
-
-          {/* Dedicated Seller Portal */}
+          {/* ---------------------------------------------------------------
+              Seller portal
+             --------------------------------------------------------------- */}
           <Route
             path="/seller"
             element={
@@ -102,7 +196,9 @@ export const App: React.FC = () => {
             }
           />
 
-          {/* Protected Farmer Portal Routes */}
+          {/* ---------------------------------------------------------------
+              Farmer portal
+             --------------------------------------------------------------- */}
           <Route
             element={
               <ProtectedRouteGuard portal="farmer">
@@ -112,7 +208,16 @@ export const App: React.FC = () => {
           >
             <Route path="/home" element={<HomeDashboardPage />} />
             <Route path="/farm" element={<FarmManagementPage />} />
+            <Route path="/twin" element={<DigitalTwinPage />} />
+            <Route path="/monitoring" element={<MonitoringPage />} />
+            <Route path="/insights" element={<AiInsightsPage />} />
+            <Route path="/irrigation" element={<IrrigationPage />} />
+            <Route path="/soil" element={<SoilHealthPage />} />
+            <Route path="/crop-health" element={<CropHealthPage />} />
             <Route path="/weather" element={<WeatherIntelligencePage />} />
+            <Route path="/alerts" element={<AlertsPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/assistant" element={<AssistantPage />} />
             <Route path="/devices" element={<DeviceManagementPage />} />
             <Route path="/devices/:deviceId" element={<DeviceDetailsPage />} />
             <Route path="/dictionary" element={<DictionaryPage />} />
@@ -131,10 +236,26 @@ export const App: React.FC = () => {
             <Route path="/account" element={<AccountSettingsPage />} />
           </Route>
 
-          {/* Fallback for unknown routes */}
-          <Route path="*" element={<RootRedirect />} />
+          {/* ---------------------------------------------------------------
+              Fallback for unknown addresses
+             --------------------------------------------------------------- */}
+          <Route element={<PublicFallback />}>
+            <Route path="*" element={<SiteNotFoundPage />} />
+          </Route>
         </Routes>
+        </Suspense>
       </BrowserRouter>
     </AgriPulseProvider>
   );
+};
+
+/**
+ * Unknown addresses always render the recovery page inside the public chrome: it explains what
+ * happened and offers navigation, instead of bouncing the visitor to an unrelated screen.
+ * Portal pages remain protected by ProtectedRouteGuard and by server-side authorization.
+ */
+const PublicFallback: React.FC = () => {
+  const { sessionLoading, session, workspaceHydrated } = useAgriPulse();
+  if (sessionLoading || (session && !workspaceHydrated)) return <SessionGate />;
+  return <SiteLayout />;
 };

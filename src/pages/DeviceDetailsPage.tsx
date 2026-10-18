@@ -21,6 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import { DeviceStatusBadge } from '../components/DeviceStatusBadge';
+import { AgriPulseLoader } from '../components/AgriPulseLoader';
 import { useAgriPulse } from '../context/AgriPulseContext';
 import { DeviceEvent, DeviceMetadataPatch, InstalledSensorType, IoTDevice, TelemetryReading } from '../types';
 import { DEVICE_STATUS_META, SENSOR_OPTIONS, maskDeviceIdentifier } from '../services/deviceService';
@@ -255,7 +256,7 @@ export const DeviceDetailsPage: React.FC = () => {
           <section className="device-detail-panel">
             <div className="device-panel-heading"><div><span className="device-eyebrow">Data provenance</span><h3>Telemetry & heartbeat</h3></div><span className="device-panel-icon"><Signal size={18} /></span></div>
             {detailsLoading ? (
-              <p role="status" className="device-empty-events">Loading authenticated device history…</p>
+              <p role="status" className="device-empty-events"><AgriPulseLoader size="sm" /> Loading authenticated device history…</p>
             ) : readings.length ? (
               <div className="device-reading-list">
                 {readings.slice(0, 8).map((reading) => <div key={reading.id} className="device-reading-row"><div><strong>{sensorName(reading.sensorType)}</strong><small>{formatTimestamp(reading.measuredAt)} · {reading.source === 'demo' ? 'Demo reading' : 'Physical sensor'}</small></div><span>{reading.value} {reading.unit}</span></div>)}
@@ -269,7 +270,7 @@ export const DeviceDetailsPage: React.FC = () => {
 
           <section className="device-detail-panel">
             <div className="device-panel-heading"><div><span className="device-eyebrow">Audit trail</span><h3>Device events</h3></div><span className="device-event-count">{events.length}</span></div>
-            {detailsLoading ? <p role="status" className="device-empty-events">Loading device audit events…</p> : events.length ? (
+            {detailsLoading ? <p role="status" className="device-empty-events"><AgriPulseLoader size="sm" /> Loading device audit events…</p> : events.length ? (
               <ol className="device-event-list">
                 {events.map((event) => <li key={event.id} className="device-event-item"><span className="device-event-marker" /><div><div className="device-event-heading"><strong>{event.title}</strong><span className={`device-event-source ${event.source === 'demo' ? 'is-demo' : ''}`}>{event.source === 'demo' ? 'Demo' : 'Backend'}</span></div><p>{event.description}</p><time dateTime={event.occurredAt}>{formatTimestamp(event.occurredAt)}</time></div></li>)}
               </ol>
@@ -326,7 +327,7 @@ export const DeviceDetailsPage: React.FC = () => {
         <div className="device-wizard-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeCommissioning()}>
           <section className="commissioning-modal" role="dialog" aria-modal="true" aria-labelledby="commissioning-title">
             <div className="device-panel-heading"><div><span className="device-eyebrow">Authenticated hardware onboarding</span><h3 id="commissioning-title">Pairing & commissioning</h3></div><button type="button" className="device-icon-button" onClick={closeCommissioning} aria-label="Close commissioning guidance"><X size={18} /></button></div>
-            {pairingBusy && <div className="commissioning-alert" role="status"><Info size={17} /><p><strong>Requesting a secure pairing code…</strong> The server validates the device and creates a short-lived commissioning session.</p></div>}
+            {pairingBusy && <div className="commissioning-alert" role="status"><AgriPulseLoader size="sm" /><p><strong>Requesting a secure pairing code…</strong> The server validates the device and creates a short-lived commissioning session.</p></div>}
             {pairingError && <div className="commissioning-alert" role="alert"><AlertTriangle size={17} /><p><strong>Pairing code not issued.</strong> {pairingError} Device status remains server-derived.</p></div>}
             {pairingSession && (
               <div className="commissioning-token-panel">

@@ -16,8 +16,10 @@ import {
   TrendingUp,
   Package,
   Truck,
+  ArrowLeft,
 } from 'lucide-react';
 import { AgriPulseLogo } from '../components/AgriPulseLogo';
+import { AgriPulseLoader } from '../components/AgriPulseLoader';
 import { useAgriPulse, DEMO_MODE_ENABLED } from '../context/AgriPulseContext';
 
 export const LoginPage: React.FC = () => {
@@ -36,6 +38,7 @@ export const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingAction, setSubmittingAction] = useState<'credentials' | 'farmer-demo' | 'seller-demo' | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
 
@@ -72,6 +75,7 @@ export const LoginPage: React.FC = () => {
     if (!validateFields(email, password)) return;
 
     setIsSubmitting(true);
+    setSubmittingAction('credentials');
     try {
       const res = await loginWithCredentials(email, password, rememberMe, 'seller');
       if (res.ok) {
@@ -81,11 +85,13 @@ export const LoginPage: React.FC = () => {
       }
     } finally {
       setIsSubmitting(false);
+      setSubmittingAction(null);
     }
   };
 
   const handleInstantDemoSeller = async () => {
     setIsSubmitting(true);
+    setSubmittingAction('seller-demo');
     setErrorMsg(null);
     try {
       const res = await loginAsSellerDemo();
@@ -96,11 +102,13 @@ export const LoginPage: React.FC = () => {
       }
     } finally {
       setIsSubmitting(false);
+      setSubmittingAction(null);
     }
   };
 
   const handleInstantDemoFarmer = async () => {
     setIsSubmitting(true);
+    setSubmittingAction('farmer-demo');
     setErrorMsg(null);
     try {
       const res = await loginAsFarmerDemo();
@@ -111,6 +119,7 @@ export const LoginPage: React.FC = () => {
       }
     } finally {
       setIsSubmitting(false);
+      setSubmittingAction(null);
     }
   };
 
@@ -142,6 +151,13 @@ export const LoginPage: React.FC = () => {
             Register Seller Account
           </Link>
         </div>
+          <Link
+            to="/"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-forest-800 hover:text-forest-950 hover:bg-forest-50 border border-transparent hover:border-forest-200 font-medium transition"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Website home</span>
+          </Link>
       </header>
 
       {/* Main Split Section */}
@@ -235,8 +251,8 @@ export const LoginPage: React.FC = () => {
                   disabled={isSubmitting}
                   className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-md transition transform active:scale-98"
                 >
-                  <Sprout className="w-4 h-4 text-amber-300 shrink-0" />
-                  <span>Open Farmer Demo</span>
+                  {submittingAction === 'farmer-demo' ? <AgriPulseLoader size="sm" className="agri-loader--button" /> : <Sprout className="w-4 h-4 text-amber-300 shrink-0" />}
+                  <span>{submittingAction === 'farmer-demo' ? 'Opening farmer workspace…' : 'Open Farmer Demo'}</span>
                 </button>
                 <button
                   type="button"
@@ -244,8 +260,8 @@ export const LoginPage: React.FC = () => {
                   disabled={isSubmitting}
                   className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-3.5 rounded-2xl bg-forest-950 hover:bg-forest-900 text-white font-bold text-xs sm:text-sm shadow-md transition transform active:scale-98"
                 >
-                  <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>Open Seller Demo</span>
+                  {submittingAction === 'seller-demo' ? <AgriPulseLoader size="sm" className="agri-loader--button" /> : <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />}
+                  <span>{submittingAction === 'seller-demo' ? 'Opening seller workspace…' : 'Open Seller Demo'}</span>
                 </button>
               </div>
             </div>}
@@ -337,8 +353,8 @@ export const LoginPage: React.FC = () => {
                 disabled={isSubmitting}
                 className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-forest-950 hover:bg-forest-900 text-white font-bold text-sm transition shadow-sm"
               >
-                <span>{isSubmitting ? 'Accessing Portal...' : 'Sign In to Seller Central'}</span>
-                <ArrowRight className="w-4 h-4 text-emerald-400" />
+                <span>{submittingAction === 'credentials' ? 'Accessing portal…' : 'Sign In to Seller Central'}</span>
+                {submittingAction === 'credentials' ? <AgriPulseLoader size="sm" className="agri-loader--button" /> : <ArrowRight className="w-4 h-4 text-emerald-400" />}
               </button>
             </form>
 
