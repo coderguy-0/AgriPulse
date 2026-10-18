@@ -620,7 +620,7 @@ export const HomeDashboardPage: React.FC = () => {
                 <p className="text-xl font-extrabold text-slate-900 mt-2">
                   {latestSoilTempObs?.soilTempC !== undefined
                     ? `${latestSoilTempObs.soilTempC}°C`
-                    : `${weather.soilTempEstimateC}°C`}
+                    : (weather.soilTempEstimateC === null ? 'Not available' : `${weather.soilTempEstimateC}°C`)}
                 </p>
                 <p className="text-[11px] text-slate-500 mt-0.5 truncate">
                   {latestSoilTempObs

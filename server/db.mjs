@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 const require = createRequire(import.meta.url);
@@ -213,6 +213,13 @@ export function openDatabase(filename = process.env.AGRIPULSE_DB_PATH || '.data/
     );
     CREATE INDEX IF NOT EXISTS audit_owner_time_idx ON audit_events(owner_user_id, occurred_at DESC);
   `);
-  db.pragma('user_version = 1');
+  db.exec('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)');
+  if (!db.prepare('SELECT version FROM schema_migrations WHERE version = ?').get(2)) {
+    db.transaction(() => {
+      db.exec(readFileSync(new URL('./migrations/002-telemetry-provenance.sql', import.meta.url), 'utf8'));
+      db.prepare('INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)').run(2, new Date().toISOString());
+      db.pragma('user_version = 2');
+    })();
+  }
   return db;
 }

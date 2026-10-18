@@ -276,7 +276,7 @@ export interface WeatherSnapshot {
   rainfallTodayMm: number;
   cloudCoverPct: number;
   visibilityKm: number;
-  soilTempEstimateC: number;
+  soilTempEstimateC: number | null;
   sourceType: 'Live API' | 'Demo Fallback Forecast';
   sourceProvider: string;
   updatedAt: string;
@@ -305,6 +305,7 @@ export type DeviceStatus =
 export type TelemetrySource = 'physical_sensor' | 'weather_api' | 'manual_observation' | 'demo';
 
 export type InstalledSensorType =
+  | 'air_humidity'
   | 'soil_moisture'
   | 'soil_temperature'
   | 'air_temperature_humidity'
@@ -360,6 +361,9 @@ export interface TelemetryReading {
   deviceId: string;
   farmId: string;
   sensorType: InstalledSensorType;
+  component?: 'nitrogen' | 'phosphorus' | 'potassium';
+  measurementKind?: 'raw' | 'calibrated' | 'legacy';
+  calibrationMethod?: string;
   value: number;
   unit: string;
   measuredAt: string;
@@ -739,7 +743,7 @@ export interface ChatMessage {
     label: string;
     route: string;
   }[];
-  modeLabel?: 'Knowledge Retrieval & Demo Guidance' | 'Demo Rule-Based Guidance' | 'Connected AI Service' | 'Device Registry · Rule-Based Guidance';
+  modeLabel?: 'Service unavailable' | 'Knowledge Retrieval & Demo Guidance' | 'Demo Rule-Based Guidance' | 'Connected AI Service' | 'Device Registry · Rule-Based Guidance';
 }
 
 // ============================================================================

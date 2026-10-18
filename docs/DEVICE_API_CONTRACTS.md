@@ -1,5 +1,22 @@
 # AGRIPULSE Devices & IoT API
 
+## October 2026 contract update
+
+The authoritative new sensor specification is exactly **capacitive soil moisture, soil NPK,
+soil temperature and air humidity** (`soil_moisture`, `soil_npk`, `soil_temperature`,
+`air_humidity`). Legacy types remain readable but cannot be newly registered or ingested.
+NPK requires a `component` (`nitrogen`, `phosphorus`, `potassium`) per reading from one sensor.
+Converted moisture/NPK requires `measurementKind: "calibrated"`, `calibrationMethod` and a
+registered device whose calibration status is `calibration_recorded`. Raw data uses unit `raw`.
+Existing history defaults to `measurementKind: "legacy"` without a retrospective calibration claim.
+See [the report](TRANSFORMATION_REPORT.md#6-actual-iot-contract-and-verification) for payloads,
+accepted units and limitations. These deliberate validation changes require matching firmware updates.
+
+Exact repeated readings are ignored transactionally and reported in `duplicates`. Historical
+rows are not deleted. New `POST /api/device-ingest/heartbeat` accepts bearer authentication and
+JSON `{}`; it updates last-seen without inventing sensor readings and supports LoRa gateways.
+No hardware has been physically contacted or verified.
+
 ## Implementation status
 
 These endpoints are implemented in the repository's local Express API and use SQLite as a development persistence layer. They are **not a production hardware service**: no physical device firmware, gateway broker, field installation, managed database, production monitoring, or external device vendor is connected. A successful API request does not by itself prove that hardware is installed.

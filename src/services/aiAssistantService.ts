@@ -34,7 +34,13 @@ export async function generateAssistantReply(
   userQuery: string,
   ctx: AssistantContext
 ): Promise<Omit<ChatMessage, 'id' | 'timestamp'>> {
-  await new Promise((resolve) => setTimeout(resolve, 420));
+  if (!ctx.profile.isDemoAccount) {
+    return {
+      sender: 'assistant', modeLabel: 'Service unavailable',
+      text: 'AgriSense AI Advisor is not connected to an AI provider. No model has reviewed your question, farm, sensors or weather. You can still browse the reference library and record field observations. For crop damage or treatment decisions, consult your local KVK or a qualified agronomist.',
+      suggestedLinks: [{ label: 'Crop disease reference', route: '/disease' }, { label: 'Record an observation', route: '/farm' }],
+    };
+  }
 
   const q = userQuery.trim().toLowerCase();
   const activeFarm = ctx.activeFarm || ctx.farms.find((f) => !f.isArchived) || ctx.farms[0];

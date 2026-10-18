@@ -66,6 +66,9 @@ function validateFarmCollections(payload) {
       return 'Every farm must have a non-empty id.';
     }
     if (farmIds.has(farm.id)) return 'Farm IDs must be unique within a workspace.';
+    if (typeof farm.name !== 'string' || !farm.name.trim() || farm.name.length > 160) return 'Every farm needs a name of 1–160 characters.';
+    if (!Number.isFinite(farm.totalArea) || farm.totalArea < 0 || farm.totalArea > 100000) return 'Farm area must be a nonnegative number no greater than 100000.';
+    if (!['acre', 'hectare', 'bigha'].includes(farm.areaUnit)) return 'Choose an explicit farm area unit: acre, hectare or bigha.';
     farmIds.add(farm.id);
   }
   const plotIds = new Set();
@@ -76,7 +79,14 @@ function validateFarmCollections(payload) {
     const uniqueKey = `${plot.farmId}:${plot.id}`;
     if (plotIds.has(uniqueKey)) return 'Plot IDs must be unique within their farm.';
     plotIds.add(uniqueKey);
-    if (farmIds.size && !farmIds.has(plot.farmId)) return `Plot ${plot.id} references a farm outside this workspace.`;
+    if (!Number.isFinite(plot.area) || plot.area <= 0 || !['acre', 'hectare', 'bigha'].includes(plot.areaUnit)) return 'Every plot requires a positive area and an explicit area unit.';
+    if (!farmIds.has(plot.farmId)) return `Plot ${plot.id} references a farm outside this workspace.`;
+  }
+  for (const key of ['crops', 'observations', 'activities', 'rainfallLogs']) {
+    if (payload[key] !== undefined && !Array.isArray(payload[key])) return `${key} must be an array.`;
+    for (const record of payload[key] || []) {
+      if (!record || typeof record.id !== 'string' || !farmIds.has(record.farmId)) return `Every ${key} record must reference a farm in this workspace.`;
+    }
   }
   return null;
 }
@@ -165,8 +175,7 @@ export function writeWorkspace(db, user, payload, expectedRevision) {
       const incomingPlotKeys = new Set(incomingPlots.map((plot) => `${plot.farmId}:${plot.id}`));
 
       const currentFarms = db.prepare('SELECT id FROM farms WHERE owner_user_id = ?').all(user.id);
-      const removedFarm = currentFarms.find((farm) => !incomingFarmIds.has(farm.id));
-      if (removedFarm) {
+      for (const removedFarm of currentFarms.filter((farm) => !incomingFarmIds.has(farm.id))) {
         const attachedDevice = db.prepare('SELECT id FROM devices WHERE owner_user_id = ? AND farm_id = ? LIMIT 1').get(user.id, removedFarm.id);
         if (attachedDevice) {
           const error = new Error('A farm with registered devices cannot be deleted. Retire or move its devices first.');

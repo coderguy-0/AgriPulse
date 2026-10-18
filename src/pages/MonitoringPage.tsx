@@ -366,7 +366,9 @@ export const MonitoringPage: React.FC = () => {
                   title="Choose a sensor to chart"
                   description="Pick a sensor above to plot stored readings for this window. Only sensors with at least one stored reading can be charted."
                 />
-              ) : seriesData && seriesData.length > 0 ? (
+              ) : sensorFilter === 'soil_npk' ? (
+                <Notice tone="info" title="NPK components stay separate">Open the device details to review nitrogen, phosphorus and potassium values with their units and conversion method. A combined NPK trend would be misleading; component-specific charting is not configured yet.</Notice>
+              ) : seriesData && seriesData.length >= 2 ? (
                 <>
                   <TrendChart
                     data={seriesData}
@@ -395,8 +397,8 @@ export const MonitoringPage: React.FC = () => {
               ) : (
                 <EmptyState
                   icon={<Activity size={19} />}
-                  title="No readings in this window"
-                  description={`No stored ${SENSOR_LABELS[sensorFilter]?.label.toLowerCase() || sensorFilter} reading falls inside ${WINDOW_LABELS[windowOption].toLowerCase()}. Widen the window or check the node heartbeat.`}
+                  title={seriesData?.length === 1 ? "One reading is not a trend" : "No chartable readings in this window"}
+                  description={`No stored ${SENSOR_LABELS[sensorFilter]?.label.toLowerCase() || sensorFilter} reading falls inside ${WINDOW_LABELS[windowOption].toLowerCase()}. At least two validated readings are needed for a trend. Raw counts are available in device details, not percentage charts. Widen the window or check the node heartbeat.`}
                 />
               )}
             </div>

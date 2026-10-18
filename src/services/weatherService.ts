@@ -75,50 +75,12 @@ export async function fetchWeatherForLocation(
   locality: string,
   options?: { simulateFailure?: boolean }
 ): Promise<WeatherServiceResult> {
-  // Simulate slight network latency for realistic UI feedback
-  await new Promise((resolve) => setTimeout(resolve, 350));
-
-  if (options?.simulateFailure) {
-    throw new Error(
-      'Simulated Weather API Failure: Unable to reach external agro-meteorological server (HTTP 503). Displaying last saved demo forecast snapshot instead.'
-    );
-  }
-
-  const configuredApiUrl = import.meta.env.VITE_WEATHER_API_URL;
-  if (configuredApiUrl && typeof configuredApiUrl === 'string' && configuredApiUrl.trim().length > 0) {
-    try {
-      const response = await fetch(
-        `${configuredApiUrl}?state=${encodeURIComponent(state)}&district=${encodeURIComponent(district)}`
-      );
-      if (!response.ok) {
-        throw new Error(`External weather endpoint returned status ${response.status}`);
-      }
-      const data = (await response.json()) as WeatherSnapshot;
-      return {
-        snapshot: {
-          ...data,
-          sourceType: 'Live API',
-          updatedAt: new Date().toISOString(),
-        },
-        isLive: true,
-      };
-    } catch (err) {
-      const fallback = buildDemoWeatherSnapshot(state, district, locality);
-      return {
-        snapshot: fallback,
-        isLive: false,
-        errorMessage:
-          err instanceof Error
-            ? `Live weather service unavailable (${err.message}). Showing clearly labelled Demo Fallback Forecast.`
-            : 'Live weather service unavailable. Showing clearly labelled Demo Fallback Forecast.',
-      };
-    }
-  }
-
-  return {
-    snapshot: buildDemoWeatherSnapshot(state, district, locality),
-    isLive: false,
-  };
+  if (options?.simulateFailure) throw new Error('Weather service unavailable. No replacement forecast was generated.');
+  const query = new URLSearchParams({ state, district });
+  const response = await fetch(`/api/weather?${query}`, { credentials: 'include', signal: AbortSignal.timeout(12_000) });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error?.message || 'Weather is unavailable. Please try again later.');
+  return { snapshot: payload.snapshot as WeatherSnapshot, isLive: true };
 }
 
 export function buildDemoWeatherSnapshot(

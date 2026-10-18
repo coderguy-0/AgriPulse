@@ -1,10 +1,7 @@
 import { newId, newOpaqueToken, sha256 } from './security.mjs';
 import { storeAuditEvent } from './workspace.mjs';
 
-const SUPPORTED_SENSORS = new Set([
-  'soil_moisture', 'soil_temperature', 'air_temperature_humidity', 'light',
-  'soil_ph', 'soil_npk', 'battery_voltage', 'standing_water',
-]);
+const SUPPORTED_SENSORS = new Set(['soil_moisture', 'soil_temperature', 'air_humidity', 'soil_npk']);
 
 function parseJson(value, fallback = {}) {
   try { return JSON.parse(value); } catch { return fallback; }
@@ -291,19 +288,31 @@ export function completePairing(db, pairingToken) {
 }
 
 const SENSOR_RULES = {
-  soil_moisture: { units: ['%'], min: 0, max: 100 },
+  soil_moisture: { units: ['%', 'raw'], min: 0, max: 65535 },
   soil_temperature: { units: ['°C', 'C'], min: -40, max: 85 },
-  air_temperature_humidity: {
-    units: ['°C', 'C', '%'],
-    min: (unit) => unit === '%' ? 0 : -50,
-    max: (unit) => unit === '%' ? 100 : 85,
-  },
-  light: { units: ['lux'], min: 0, max: 200000 },
-  soil_ph: { units: ['pH'], min: 0, max: 14 },
-  soil_npk: { units: ['mg/kg'], min: 0, max: 20000 },
-  battery_voltage: { units: ['V'], min: 0, max: 30 },
-  standing_water: { units: ['boolean'], min: 0, max: 1 },
+  air_humidity: { units: ['%'], min: 0, max: 100 },
+  soil_npk: { units: ['mg/kg', 'raw'], min: 0, max: 65535 },
 };
+
+function authenticatedDevice(db, secret) {
+  return db.prepare(`SELECT c.device_id, c.owner_user_id, d.farm_id, d.paired_at, d.retired_at, d.metadata_json
+    FROM device_credentials c JOIN devices d ON d.id = c.device_id
+    WHERE c.secret_hash = ? AND c.revoked_at IS NULL`).get(sha256(secret));
+}
+
+export function recordHeartbeat(db, secret) {
+  const credential = authenticatedDevice(db, secret);
+  if (!credential || !credential.paired_at || credential.retired_at) {
+    return { ok: false, status: 401, code: 'DEVICE_CREDENTIAL_INVALID', message: 'Device credential is invalid or revoked.' };
+  }
+  const now = new Date().toISOString();
+  db.transaction(() => {
+    db.prepare('UPDATE devices SET last_seen_at = ?, updated_at = ? WHERE id = ?').run(now, now, credential.device_id);
+    const device = db.prepare('SELECT * FROM devices WHERE id = ?').get(credential.device_id);
+    event(db, { device, type: 'heartbeat', title: 'Authenticated heartbeat received', description: 'Device acknowledged connectivity. No sensor measurement was supplied.', source: 'device' });
+  })();
+  return { ok: true, receivedAt: now };
+}
 
 export function ingestTelemetry(db, bearerSecret, readings) {
   const credential = db.prepare(`SELECT c.device_id, c.owner_user_id, d.farm_id, d.paired_at, d.retired_at, d.metadata_json
@@ -324,8 +333,18 @@ export function ingestTelemetry(db, bearerSecret, readings) {
     }
     const valueMin = typeof rule.min === 'function' ? rule.min(reading.unit) : rule.min;
     const valueMax = typeof rule.max === 'function' ? rule.max(reading.unit) : rule.max;
-    if (!rule.units.includes(reading.unit) || reading.value < valueMin || reading.value > valueMax) {
+    if (!rule.units.includes(reading.unit) || reading.value < valueMin || reading.value > valueMax || (reading.sensorType === 'soil_moisture' && reading.unit === '%' && reading.value > 100)) {
       return { ok: false, status: 400, code: 'INVALID_READING', message: `Reading for ${reading.sensorType} has an unsupported unit or is outside the accepted range.` };
+    }
+    if ((reading.sensorType === 'soil_npk') !== Boolean(reading.component)) {
+      return { ok: false, status: 400, code: 'INVALID_COMPONENT', message: 'NPK readings require nitrogen, phosphorus or potassium; other sensors must omit component.' };
+    }
+    if (['soil_moisture', 'soil_npk'].includes(reading.sensorType) && reading.unit !== 'raw' &&
+        (reading.measurementKind !== 'calibrated' || !reading.calibrationMethod || metadata.calibrationStatus !== 'calibration_recorded')) {
+      return { ok: false, status: 400, code: 'CALIBRATION_REQUIRED', message: 'Converted moisture and NPK measurements require recorded calibration and a documented conversion method.' };
+    }
+    if ((reading.unit === 'raw') !== (reading.measurementKind !== 'calibrated') && ['soil_moisture', 'soil_npk'].includes(reading.sensorType)) {
+      return { ok: false, status: 400, code: 'INVALID_CONVERSION', message: 'Raw values must use raw units and calibrated values must use documented measurement units.' };
     }
     if (!Number.isFinite(measuredMs) || measuredMs > nowMs + 5 * 60 * 1000 || measuredMs < nowMs - 90 * 24 * 60 * 60 * 1000) {
       return { ok: false, status: 400, code: 'INVALID_TIMESTAMP', message: 'Reading timestamp is outside the accepted 90-day window.' };
@@ -334,11 +353,14 @@ export function ingestTelemetry(db, bearerSecret, readings) {
 
   const inserted = [];
   db.transaction(() => {
-    const insertReading = db.prepare(`INSERT INTO telemetry_readings(id, device_id, owner_user_id, farm_id, sensor_type, value, unit, measured_at, received_at, quality, source)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'valid', 'physical_sensor')`);
+    const insertReading = db.prepare(`INSERT INTO telemetry_readings(id, device_id, owner_user_id, farm_id, sensor_type, value, unit, measured_at, received_at, quality, source, component, measurement_kind, calibration_method)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'valid', 'physical_sensor', ?, ?, ?)`);
+    const duplicate = db.prepare(`SELECT id FROM telemetry_readings WHERE device_id = ? AND sensor_type = ? AND measured_at = ? AND unit = ? AND value = ? AND component IS ? AND measurement_kind = ? AND calibration_method IS ? LIMIT 1`);
     for (const reading of readings) {
+      const timestamp = new Date(reading.measuredAt).toISOString();
+      if (duplicate.get(credential.device_id, reading.sensorType, timestamp, reading.unit, reading.value, reading.component || null, reading.measurementKind || 'raw', reading.calibrationMethod || null)) continue;
       const id = newId('reading');
-      insertReading.run(id, credential.device_id, credential.owner_user_id, credential.farm_id, reading.sensorType, reading.value, reading.unit, new Date(reading.measuredAt).toISOString(), now);
+      insertReading.run(id, credential.device_id, credential.owner_user_id, credential.farm_id, reading.sensorType, reading.value, reading.unit, timestamp, now, reading.component || null, reading.measurementKind || 'raw', reading.calibrationMethod || null);
       inserted.push({ id, ...reading, deviceId: credential.device_id, farmId: credential.farm_id, receivedAt: now, quality: 'valid', source: 'physical_sensor' });
     }
     db.prepare('UPDATE devices SET last_seen_at = ?, updated_at = ? WHERE id = ?').run(now, now, credential.device_id);
@@ -346,7 +368,7 @@ export function ingestTelemetry(db, bearerSecret, readings) {
     event(db, { device, actorUserId: null, type: 'heartbeat', title: 'Authenticated heartbeat received', description: `Received ${readings.length} validated physical sensor reading(s).`, source: 'device' });
     storeAuditEvent(db, { actorUserId: null, ownerUserId: credential.owner_user_id, action: 'device.telemetry.ingest', resourceType: 'device', resourceId: credential.device_id, metadata: { readingCount: readings.length } });
   })();
-  return { ok: true, receivedAt: now, readings: inserted };
+  return { ok: true, receivedAt: now, readings: inserted, duplicates: readings.length - inserted.length };
 }
 
 export function getTelemetry(db, user, deviceId, { from, to, limit = 500 }) {
@@ -357,7 +379,7 @@ export function getTelemetry(db, user, deviceId, { from, to, limit = 500 }) {
   if (from) { where += ' AND measured_at >= ?'; params.push(from); }
   if (to) { where += ' AND measured_at <= ?'; params.push(to); }
   params.push(limit);
-  const readings = db.prepare(`SELECT id, device_id AS deviceId, farm_id AS farmId, sensor_type AS sensorType, value, unit, measured_at AS measuredAt, received_at AS receivedAt, quality, source
+  const readings = db.prepare(`SELECT id, device_id AS deviceId, farm_id AS farmId, sensor_type AS sensorType, value, unit, measured_at AS measuredAt, received_at AS receivedAt, quality, source, component, measurement_kind AS measurementKind, calibration_method AS calibrationMethod
     FROM telemetry_readings WHERE ${where} ORDER BY measured_at DESC LIMIT ?`).all(...params);
   return readings;
 }

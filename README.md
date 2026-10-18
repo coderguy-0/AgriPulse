@@ -18,6 +18,18 @@ bilingual dictionary and a demonstration marketplace.
 > [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) and
 > [`docs/DEVICE_API_CONTRACTS.md`](docs/DEVICE_API_CONTRACTS.md) for detail.
 
+## October 2026 transformation update
+
+See [the implementation, verification and outstanding-work report](docs/TRANSFORMATION_REPORT.md)
+for the exact status, file changes and startup commands. The current implementation remains
+**SQLite-backed, not PostgreSQL**, and commerce remains a labeled demonstration. Recent changes
+include the redesigned agricultural home, approved four-sensor registration, calibration-aware
+and retry-safe telemetry, standalone gateway heartbeat, server-side weather integration,
+production AI unavailable states, privacy/terms notices and responsive Chromium checks.
+Weather requires server-only `WEATHER_PROVIDER=weatherapi` and `WEATHER_API_KEY`; do not put
+provider secrets in browser `VITE_*` variables. New converted soil-moisture/NPK payloads now
+require documented calibration. See the revised [device contract](docs/DEVICE_API_CONTRACTS.md).
+
 ## What the platform does
 
 **Public website** — Home, Platform, AI capabilities, Digital twin, How it works, Technology,

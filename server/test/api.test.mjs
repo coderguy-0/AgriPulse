@@ -225,7 +225,8 @@ describe('AGRIPULSE authenticated API', () => {
         serialNumber: 'AP-TEST-ND-01',
         locationLabel: 'North boundary by the canal',
         gatewayId: gateway.data.device.id,
-        installedSensors: ['soil_moisture'],
+        installedSensors: ['soil_moisture', 'soil_npk', 'air_humidity'],
+        calibrationStatus: 'calibration_recorded',
         powerSource: 'solar_battery',
       },
     });
@@ -279,18 +280,39 @@ describe('AGRIPULSE authenticated API', () => {
     });
     assert.equal(noRainGauge.response.status, 400);
 
+    const measuredAt = new Date().toISOString();
+    const calibratedReading = { sensorType: 'soil_moisture', value: 42, unit: '%', measuredAt, measurementKind: 'calibrated', calibrationMethod: 'Test fixture only: documented gravimetric calibration.' };
     const ingested = await api('/api/device-ingest/telemetry', {
       method: 'POST',
       headers: { Authorization: `Bearer ${deviceSecret}` },
-      body: { readings: [{ sensorType: 'soil_moisture', value: 42, unit: '%', measuredAt: new Date().toISOString() }] },
+      body: { readings: [calibratedReading] },
     });
     assert.equal(ingested.response.status, 202, JSON.stringify(ingested.data));
     assert.equal(ingested.data.readings[0].source, 'physical_sensor');
 
+    const retry = await api('/api/device-ingest/telemetry', { method: 'POST', headers: { Authorization: `Bearer ${deviceSecret}` }, body: { readings: [calibratedReading, calibratedReading] } });
+    assert.equal(retry.response.status, 202);
+    assert.equal(retry.data.duplicates, 2);
+    assert.equal(retry.data.readings.length, 0);
+    const uncalibrated = await api('/api/device-ingest/telemetry', { method: 'POST', headers: { Authorization: `Bearer ${deviceSecret}` }, body: { readings: [{ sensorType: 'soil_moisture', value: 30, unit: '%', measuredAt }] } });
+    assert.equal(uncalibrated.data.error.code, 'CALIBRATION_REQUIRED');
+    const npkMissingComponent = await api('/api/device-ingest/telemetry', { method: 'POST', headers: { Authorization: `Bearer ${deviceSecret}` }, body: { readings: [{ sensorType: 'soil_npk', value: 30, unit: 'raw', measuredAt }] } });
+    assert.equal(npkMissingComponent.data.error.code, 'INVALID_COMPONENT');
+    const npk = await api('/api/device-ingest/telemetry', { method: 'POST', headers: { Authorization: `Bearer ${deviceSecret}` }, body: { readings: ['nitrogen', 'phosphorus', 'potassium'].map((component) => ({ sensorType: 'soil_npk', component, value: 30, unit: 'raw', measuredAt })) } });
+    assert.equal(npk.response.status, 202);
+    assert.equal(npk.data.readings.length, 3);
+    const gatewayPairing = await api(`/api/devices/${gateway.data.device.id}/pairing-sessions`, { method: 'POST', cookie: farmerCookie });
+    const gatewayPaired = await api('/api/device-ingest/pairing/complete', { method: 'POST', body: { pairingToken: gatewayPairing.data.pairingSession.pairingToken } });
+    const heartbeat = await api('/api/device-ingest/heartbeat', { method: 'POST', headers: { Authorization: `Bearer ${gatewayPaired.data.deviceSecret}` }, body: {} });
+    assert.equal(heartbeat.response.status, 202);
+    const onlineGateway = await api(`/api/devices/${gateway.data.device.id}`, { cookie: farmerCookie });
+    assert.equal(onlineGateway.data.device.status, 'online');
+    assert.equal(onlineGateway.data.latestReadings.length, 0);
+
     const latest = await api(`/api/devices/${node.data.device.id}`, { cookie: farmerCookie });
     assert.equal(latest.response.status, 200);
     assert.equal(latest.data.device.status, 'online');
-    assert.equal(latest.data.latestReadings[0].value, 42);
+    assert.ok(latest.data.latestReadings.some((reading) => reading.sensorType === 'soil_moisture' && reading.value === 42));
     assert.equal(latest.data.latestReadings[0].source, 'physical_sensor');
 
     const events = await api(`/api/devices/${node.data.device.id}/events`, { cookie: farmerCookie });
@@ -316,6 +338,23 @@ describe('AGRIPULSE authenticated API', () => {
 
     const hidden = await api('/api/devices/device-does-not-belong-to-this-user', { cookie: otherCookie });
     assert.equal(hidden.response.status, 404);
+  });
+
+  it('requires revisions, rejects cross-site changes and unavailable weather honestly', async () => {
+    const noRevision = await api('/api/workspace', { method: 'PUT', cookie: farmerCookie, body: { data: farmerWorkspace.data } });
+    assert.equal(noRevision.response.status, 428);
+    const crossSite = await api('/api/auth/logout', { method: 'POST', cookie: farmerCookie, headers: { 'Sec-Fetch-Site': 'cross-site' } });
+    assert.equal(crossSite.response.status, 403);
+    assert.equal(crossSite.data.error.code, 'CSRF_REJECTED');
+    const weather = await api('/api/weather?state=Haryana&district=Karnal', { cookie: farmerCookie });
+    assert.equal(weather.response.status, 503);
+    assert.equal(weather.data.error.code, 'WEATHER_NOT_CONFIGURED');
+    assert.equal(Object.hasOwn(weather.data, 'snapshot'), false);
+    assert.equal((await api('/api/weather?state=Haryana&district=Karnal', { cookie: sellerCookie })).response.status, 403);
+    assert.equal((await api('/api/weather?state=Haryana&district=%3Cscript%3E', { cookie: farmerCookie })).response.status, 400);
+    assert.equal((await api('/api/device-ingest/heartbeat', { method: 'POST', body: {} })).response.status, 401);
+    const legacySensor = await api('/api/devices', { method: 'POST', cookie: farmerCookie, body: { farmId: farmerWorkspace.data.farms[0].id, type: 'sensor_node', name: 'Unsupported light sensor', locationLabel: 'North boundary', installedSensors: ['light'] } });
+    assert.equal(legacySensor.response.status, 400);
   });
 
   it('keeps demo access development-only', async () => {

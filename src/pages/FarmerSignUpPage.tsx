@@ -289,6 +289,7 @@ export const FarmerSignUpPage: React.FC = () => {
 
             </div>
 
+            <p className="text-xs leading-relaxed text-slate-600">Please read the <Link to="/terms" className="underline text-forest-800">terms of use</Link> and <Link to="/privacy" className="underline text-forest-800">privacy notice</Link> before creating your account.</p>
             <div className="pt-4 border-t border-forest-100 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="text-xs text-forest-600">
                 Already registered?{' '}

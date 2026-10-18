@@ -1,6 +1,10 @@
+import { existsSync } from 'node:fs';
+import { loadEnvFile } from 'node:process';
 import { createServer } from 'node:http';
 import { openDatabase } from './db.mjs';
 import { createApp } from './app.mjs';
+
+if (existsSync('.env')) loadEnvFile('.env');
 
 const port = Number(process.env.API_PORT || 4000);
 const host = process.env.API_HOST || '0.0.0.0';
