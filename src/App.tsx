@@ -9,6 +9,7 @@ import {
 import { AgriPulseProvider, useAgriPulse } from './context/AgriPulseContext';
 import { AppShell } from './components/AppShell';
 import { SiteLayout } from './components/SiteLayout';
+import { AgriPulseLoader } from './components/AgriPulseLoader';
 import { PortalType } from './types';
 
 /**
@@ -94,22 +95,18 @@ const FARMER_ROUTES = [
 ];
 
 const SessionGate: React.FC = () => (
-  <div role="status" aria-live="polite" className="grid min-h-screen place-items-center bg-warmbg px-6 text-center">
-    <div>
-      <div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-[3px] border-forest-200 border-t-forest-700" aria-hidden="true" />
-      <p className="text-sm font-semibold text-forest-900">Loading secure AGRIPULSE session…</p>
-      <p className="mt-1 text-xs text-slate-500">Checking your authenticated workspace with the API.</p>
+  <div className="grid min-h-screen place-items-center bg-warmbg px-6 text-center">
+    <div className="w-full max-w-sm">
+      <AgriPulseLoader variant="panel" size="lg" label="Loading secure AGRIPULSE session…" />
+      <p className="mt-2 text-xs text-slate-500">Checking your authenticated workspace with the API.</p>
     </div>
   </div>
 );
 
 /** Shown while a lazily loaded page chunk downloads. */
 const PageLoading: React.FC = () => (
-  <div role="status" aria-live="polite" className="grid min-h-[52vh] place-items-center px-6 text-center">
-    <div>
-      <div className="mx-auto mb-3 h-7 w-7 animate-spin rounded-full border-[3px] border-forest-200 border-t-forest-700" aria-hidden="true" />
-      <p className="text-xs font-semibold text-forest-900">Opening module…</p>
-    </div>
+  <div className="grid min-h-[52vh] place-items-center px-6 text-center">
+    <AgriPulseLoader size="md" label="Opening module…" />
   </div>
 );
 

@@ -14,6 +14,7 @@ import {
   Waves,
 } from 'lucide-react';
 import { PageHeader, SectionCard, KpiTile, Notice, EmptyState, ProvenanceTag, StatusBadge, Meter, SegmentedControl } from '../components/ui/primitives';
+import { AgriPulseLoader } from '../components/AgriPulseLoader';
 import { TrendChart, CHART_COLOURS } from '../components/ui/charts';
 import { useFarmScope } from '../hooks/useFarmScope';
 import { useAgriPulse } from '../context/AgriPulseContext';
@@ -132,7 +133,7 @@ export const MonitoringPage: React.FC = () => {
               onClick={() => void scope.refreshTelemetry()}
               disabled={scope.telemetryLoading}
             >
-              <RefreshCw size={14} className={scope.telemetryLoading ? 'animate-spin' : ''} />
+              {scope.telemetryLoading ? <AgriPulseLoader size="sm" /> : <RefreshCw size={14} />}
               {scope.telemetryLoading ? 'Checking readings…' : 'Refresh readings'}
             </button>
             <Link className="ap-btn ap-btn--primary" to="/devices">

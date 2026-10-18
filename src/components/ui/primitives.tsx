@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, CheckCircle2, ChevronDown, Info, Loader2, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, Info, X } from 'lucide-react';
+import { AgriPulseLoader } from '../AgriPulseLoader';
 import { ProvenanceKind } from '../../services/provenance';
 
 /* ---------------------------------------------------------------------------
@@ -253,8 +254,8 @@ export const SkeletonBlock: React.FC<{ rows?: number; label?: string }> = ({ row
 );
 
 export const Spinner: React.FC<{ size?: number; label?: string }> = ({ size = 15, label }) => (
-  <span className="inline-flex items-center gap-2" role={label ? 'status' : undefined}>
-    <Loader2 size={size} className="animate-spin" aria-hidden="true" />
+  <span className="inline-flex items-center gap-2" role={label ? 'status' : undefined} aria-live={label ? 'polite' : undefined}>
+    <AgriPulseLoader size={size <= 20 ? 'sm' : size <= 36 ? 'md' : 'lg'} />
     {label && <span className="sr-only">{label}</span>}
   </span>
 );

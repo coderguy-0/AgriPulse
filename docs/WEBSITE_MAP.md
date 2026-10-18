@@ -63,11 +63,11 @@ breadcrumb context, quick search, a data-freshness indicator, weather, cart, ale
 
 | Route | Page | Notes |
 |---|---|---|
-| `/seller`, `/seller/dashboard` | Seller workspace | Same design tokens; seller role enforced by the API and the route guard |
+| `/seller`, `/seller/dashboard` | Seller workspace | Farmer-style forest sidebar/header and responsive drawer for Dashboard Overview, Catalog & Inventory, Demo / Workspace Orders, Financials & Payouts, and Store Profile & GSTIN; preserves seller role guard, account actions, and existing state-based section switching |
 
 ## Cross-cutting UI states
 
-- **Loading** — skeletons for panel content, spinners inside buttons, `role="status"` announcements.
+- **Loading** — skeletons for panel content, the agriculture-themed `AgriPulseLoader` (including button use), and `role="status"` announcements.
 - **Empty** — every list and table has a written empty state with the next useful action.
 - **Error** — API failures surface the server message with a retry action (`Refresh readings`).
 - **Offline / stale** — readings older than the heartbeat window are labelled with their age.

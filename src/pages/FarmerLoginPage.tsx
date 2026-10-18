@@ -19,6 +19,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { AgriPulseLogo } from '../components/AgriPulseLogo';
+import { AgriPulseLoader } from '../components/AgriPulseLoader';
 import {
   useAgriPulse,
   DEMO_MODE_ENABLED,
@@ -34,6 +35,7 @@ export const FarmerLoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingAction, setSubmittingAction] = useState<'credentials' | 'farmer-demo' | 'seller-demo' | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
 
@@ -70,6 +72,7 @@ export const FarmerLoginPage: React.FC = () => {
     if (!validateFields(email, password)) return;
 
     setIsSubmitting(true);
+    setSubmittingAction('credentials');
     try {
       const res = await loginWithCredentials(email, password, rememberMe, 'farmer');
       if (res.ok) {
@@ -79,11 +82,13 @@ export const FarmerLoginPage: React.FC = () => {
       }
     } finally {
       setIsSubmitting(false);
+      setSubmittingAction(null);
     }
   };
 
   const handleInstantDemoFarmer = async () => {
     setIsSubmitting(true);
+    setSubmittingAction('farmer-demo');
     setErrorMsg(null);
     try {
       const res = await loginAsFarmerDemo();
@@ -94,11 +99,13 @@ export const FarmerLoginPage: React.FC = () => {
       }
     } finally {
       setIsSubmitting(false);
+      setSubmittingAction(null);
     }
   };
 
   const handleInstantDemoSeller = async () => {
     setIsSubmitting(true);
+    setSubmittingAction('seller-demo');
     setErrorMsg(null);
     try {
       const res = await loginAsSellerDemo();
@@ -109,6 +116,7 @@ export const FarmerLoginPage: React.FC = () => {
       }
     } finally {
       setIsSubmitting(false);
+      setSubmittingAction(null);
     }
   };
 
@@ -135,10 +143,11 @@ export const FarmerLoginPage: React.FC = () => {
           {DEMO_MODE_ENABLED && <button
             type="button"
             onClick={handleInstantDemoSeller}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-forest-900 hover:bg-forest-800 text-forest-200 hover:text-white border border-forest-700 transition"
+            disabled={isSubmitting}
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-forest-900 hover:bg-forest-800 text-forest-200 hover:text-white border border-forest-700 transition disabled:opacity-70"
           >
-            <Store className="w-3.5 h-3.5 text-amber-400" />
-            <span>Open Seller Demo</span>
+            {submittingAction === 'seller-demo' ? <AgriPulseLoader size="sm" className="agri-loader--button" /> : <Store className="w-3.5 h-3.5 text-amber-400" />}
+            <span>{submittingAction === 'seller-demo' ? 'Opening seller demo…' : 'Open Seller Demo'}</span>
           </button>}
           <Link
             to="/login"
@@ -226,8 +235,8 @@ export const FarmerLoginPage: React.FC = () => {
                 disabled={isSubmitting}
                 className="w-full inline-flex items-center justify-center gap-2.5 py-3 px-4 rounded-2xl bg-leaf-600 hover:bg-leaf-700 text-white font-bold text-sm shadow-md transition transform active:scale-98"
               >
-                <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-                <span>Open Farmer Demo Workspace</span>
+                {submittingAction === 'farmer-demo' ? <AgriPulseLoader size="sm" className="agri-loader--button" /> : <Sparkles className="w-4 h-4 text-amber-300" />}
+                <span>{submittingAction === 'farmer-demo' ? 'Opening farmer workspace…' : 'Open Farmer Demo Workspace'}</span>
               </button>
             </div>}
 
@@ -316,8 +325,8 @@ export const FarmerLoginPage: React.FC = () => {
                 disabled={isSubmitting}
                 className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-forest-950 hover:bg-forest-900 text-white font-bold text-sm transition shadow-sm"
               >
-                <span>{isSubmitting ? 'Signing In...' : 'Sign In to Farmer Portal'}</span>
-                <ArrowRight className="w-4 h-4 text-leaf-400" />
+                <span>{submittingAction === 'credentials' ? 'Signing in…' : 'Sign In to Farmer Portal'}</span>
+                {submittingAction === 'credentials' ? <AgriPulseLoader size="sm" className="agri-loader--button" /> : <ArrowRight className="w-4 h-4 text-leaf-400" />}
               </button>
             </form>
 

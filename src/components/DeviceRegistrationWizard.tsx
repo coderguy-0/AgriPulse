@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { DeviceRegistrationInput, DeviceType, Farm, FarmPlot, IoTDevice, InstalledSensorType } from '../types';
+import { AgriPulseLoader } from './AgriPulseLoader';
 import { DEVICE_TYPE_META, SENSOR_OPTIONS, validateDeviceRegistration } from '../services/deviceService';
 
 interface DeviceRegistrationWizardProps {
@@ -538,7 +539,10 @@ export const DeviceRegistrationWizard: React.FC<DeviceRegistrationWizardProps> =
             <>
               <button type="button" className="device-secondary-button" onClick={() => setStep(2)}><ArrowLeft size={15} /> Back to details</button>
               <span className="device-footer-spacer" />
-              <button type="button" className="device-primary-button" onClick={handleSubmit} disabled={!activeFarms.length || isSubmitting}>{isSubmitting ? 'Saving…' : 'Register device'} {!isSubmitting && <Check size={16} />}</button>
+              <button type="button" className="device-primary-button" onClick={handleSubmit} disabled={!activeFarms.length || isSubmitting}>
+                {isSubmitting ? <AgriPulseLoader size="sm" className="agri-loader--button" /> : <Check size={16} />}
+                {isSubmitting ? 'Saving…' : 'Register device'}
+              </button>
             </>
           )}
         </footer>

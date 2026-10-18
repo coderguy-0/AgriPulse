@@ -47,8 +47,11 @@ what is a demonstration and what is planned.
   **Crop disease library**, **Dictionary**, **Marketplace** (demonstration), **Farm & account
   settings**.
 
-**Seller portal** — catalog, order and settlement concepts with the same design language and
-seller-only API authorization.
+**Seller portal** — a seller-focused workspace inside the same Farmer Portal shell and navigation
+system, with seller-only API authorization. Dashboard Overview, Catalog & Inventory, Demo / Workspace
+Orders, Financials & Payouts, and Store Profile & GSTIN retain their existing state-based behavior,
+data, and seller actions while sharing the forest sidebar, contextual Seller Central header, accessible
+mobile drawer, and five-item mobile navigation.
 
 ## Data provenance (a product requirement, not a disclaimer)
 

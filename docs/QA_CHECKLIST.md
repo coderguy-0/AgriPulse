@@ -18,8 +18,8 @@ npm run dev          # http://localhost:3000  (public site)  /api on :4000
 | TypeScript + server syntax | `npm run lint` | pass, no diagnostics |
 | API tests | `npm test` | 6 tests / 6 pass / 0 fail |
 | Field-intelligence unit tests | `npm run test:web` | 20 tests / 20 pass / 0 fail |
-| Render smoke test (every public page + portal module) | `npm run test:render` | all 42 renders passed |
-| Production bundle | `npm run build` | pass, entry chunk 89.5 kB gzip |
+| Render smoke test (public pages, portal modules, loader markup + navigation audits) | `npm run test:render` | 46 checks passed |
+| Production bundle | `npm run build` | pass, entry chunk 90.03 kB gzip |
 
 ---
 
@@ -66,8 +66,16 @@ assistant), **Knowledge & market** (Disease library, Dictionary, Store, Orders, 
 News, Schemes). Active state uses `aria-current="page"`; desktop keeps the fixed sidebar, mobile uses
 a drawer plus a four-destination bottom bar.
 
-*Evidence:* `src/components/AppShell.tsx`; the render smoke test visits every destination so a
-broken link fails CI.
+*Evidence:* `src/components/AppShell.tsx` for farmers and `src/pages/SellerPortalPage.tsx` for sellers.
+The seller workspace reuses the forest sidebar and active-item treatment with two groups: **Seller
+Workspace** (Dashboard Overview, Catalog & Inventory, Demo Orders / Workspace Orders) and **Business
+Management** (Financials & Payouts, Store Profile & GSTIN). Catalog and order totals remain visible;
+pending orders retain their badge. The header keeps Seller Central Hub, the business identity, the
+contextual demo-workspace indicator, Preview Farmer Store, Switch to Farmer Portal, and one Sign Out
+action. Seller identity is pinned to the sidebar footer on desktop and in the drawer on mobile, without
+a duplicate sign-out control. Tablet/mobile use a compact header, an accessible dialog drawer with
+Escape, a tab loop, and focus restoration, plus the existing five-item bottom bar. The render smoke test checks the seller labels, active state, header action, and drawer
+trigger semantics.
 
 ## 6. Dashboard priorities
 
@@ -110,8 +118,8 @@ time. Rule-based screening is labelled `Rule-based`; unbuilt models are labelled
 
 Forms validate, keep valid input and show the error next to the field; success appears only after the
 server accepts; destructive actions (reset workspace, delete plot, retire device) ask for
-confirmation; every list has an empty state; loading states use skeletons or in-button spinners; API
-errors surface the server message with a retry.
+confirmation; every list has an empty state; loading states use skeletons or the reduced-motion-safe
+AgriPulse sprout loader; API errors surface the server message with a retry.
 
 *Evidence:* `Modal` (focus trap, Escape, focus restore), `SegmentedControl` (arrow keys), `InfoTip`
 (hover/focus), the rainfall log and enquiry forms, and CSV exports built from the rendered rows.
@@ -135,8 +143,8 @@ them; no `box-shadow` animation on large surfaces and no scroll-linked effects.
 
 ## 14. Shared components and tokens
 
-`src/components/ui/primitives.tsx`, `charts.tsx`, `DataTable.tsx` plus the `.ap-*` layer. Inventory in
-`docs/DESIGN_SYSTEM.md`.
+`src/components/ui/primitives.tsx`, `charts.tsx`, `DataTable.tsx`, and the shared
+`src/components/AgriPulseLoader.tsx` plus the `.ap-*` layer. Inventory in `docs/DESIGN_SYSTEM.md`.
 
 ## 15. Technical quality
 
@@ -152,7 +160,7 @@ demo gating), `npm run test:render` (all routes render), `.env`-free `VITE_*` us
 
 Landmarks, `aria-live` announcements, focus rings, labelled controls, keyboard-operable twin and
 tabs, skip-to-content link. Route-level code splitting keeps the first load small
-(entry 89.5 kB gzip, React 53.7 kB, icons 11.4 kB; charts and heavy knowledge libraries load on
+(entry 90.0 kB gzip, React 53.7 kB, icons 11.4 kB; charts and heavy knowledge libraries load on
 demand). No polling loop, one request per device per refresh, and every failure state has a retry.
 
 ## 17. Security and privacy
@@ -196,7 +204,7 @@ in section 5 plus `/devices`, `/devices/:id`, `/disease`, `/disease/:id`, `/dict
 | No visual inconsistencies | Token audit; no page-local colour or radius values |
 | No feature silently removed | Legacy modules (marketplace, dictionary, disease library, news, schemes, devices) still routed and reachable |
 | No false live-data claims | See "Known limitations" in `README.md` |
-| Existing tests pass, new functionality tested | `npm run test:all` — 6 API + 20 unit + 42 renders |
+| Existing tests pass, new functionality tested | `npm run test:all` — 6 API + 20 unit + 46 render/navigation/loader checks |
 | Remaining limitations documented | `README.md` → Known limitations, `docs/WEBSITE_MAP.md`, `docs/DEVICE_API_CONTRACTS.md` |
 
 ### Manual pass that still needs a human

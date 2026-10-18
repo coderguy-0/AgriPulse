@@ -65,7 +65,7 @@ line up between rows and cards. Units are rendered next to the value, never insi
 
 ## Component inventory
 
-All primitives are in `src/components/ui/`.
+Most primitives are in `src/components/ui/`; the shared agriculture loader is in `src/components/AgriPulseLoader.tsx` with its co-located CSS.
 
 | Component | File | Notes |
 |---|---|---|
@@ -75,7 +75,8 @@ All primitives are in `src/components/ui/`.
 | `ProvenanceTag` | `primitives.tsx` | `measured` / `recorded` / `forecast` / `rule` / `demo` / `unavailable` |
 | `StatusBadge` | `primitives.tsx` | Tones: default, ok, info, warn, danger, muted, outline |
 | `Notice` | `primitives.tsx` | Info / success / warning / danger / neutral inline messages |
-| `EmptyState`, `Skeleton`, `SkeletonBlock`, `Spinner` | `primitives.tsx` | Loading and empty states |
+| `EmptyState`, `Skeleton`, `SkeletonBlock`, `Spinner` | `primitives.tsx` | Loading and empty states; `Spinner` uses the agriculture loader |
+| `AgriPulseLoader` | `components/AgriPulseLoader.tsx` + `.css` | Sprout, rotating field ring and earth accents; inline, button and panel sizes; reduced-motion safe |
 | `Meter` | `primitives.tsx` | Threshold meter with `role="meter"` and a numeric value |
 | `SegmentedControl`, `Tabs` | `primitives.tsx` | Keyboard-navigable filters and tabs |
 | `Modal` | `primitives.tsx` | Focus trap, Escape to close, focus restore, scroll lock |
@@ -99,7 +100,7 @@ Every interactive element defines hover, focus-visible, active, disabled and loa
 
 - Focus: `:focus-visible { outline: 3px solid rgba(114,169,75,.7); outline-offset: 2px }` globally.
 - Disabled: `opacity: .55` plus `cursor: not-allowed` and a disabled attribute.
-- Loading: spinner inside the button, label changes to a progress verb (`Checking readings…`).
+- Loading: the shared agriculture-themed sprout loader replaces the plain circular throbber; button text stays explicit (`Checking readings…`). The animation stops under `prefers-reduced-motion`.
 - Errors: `.ap-error-text` under the field, `aria-invalid="true"` on the control, and a `role="alert"`
   message near the action.
 
@@ -107,8 +108,8 @@ Every interactive element defines hover, focus-visible, active, disabled and loa
 
 | Breakpoint | Behaviour |
 |---|---|
-| `< 640px` | Single column, bottom navigation with 4 destinations + All, drawer navigation, dialogs go full screen, tables scroll horizontally |
-| `640–1023px` | Two-up grids, sidebar still hidden, header condenses |
+| `< 640px` | Single column, accessible seller drawer with Escape/focus return, dialogs go full screen, tables scroll horizontally; farmer bottom bar has 4 destinations + All, seller bar exposes its 5 sections |
+| `640–1023px` | Two-up grids, sidebar still hidden, compact header retains seller identity, demo context and sign out |
 | `1024–1279px` | Fixed sidebar, three-up metric grids |
 | `≥ 1280px` | Full sidebar, four to six metric tiles per row, side-by-side analysis panels |
 

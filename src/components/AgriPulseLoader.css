@@ -1,0 +1,181 @@
+.agri-loader {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-width: 0;
+  color: #55745a;
+  line-height: 1.5;
+  vertical-align: middle;
+}
+
+.agri-loader__art {
+  display: block;
+  flex: none;
+  width: var(--agri-loader-size, 34px);
+  height: var(--agri-loader-size, 34px);
+  overflow: visible;
+}
+
+.agri-loader__track {
+  fill: none;
+  stroke: #dcebd8;
+  stroke-width: 2.4;
+}
+
+.agri-loader__orbit {
+  transform-box: view-box;
+  transform-origin: center;
+  animation: agri-loader-orbit 1.8s linear infinite;
+}
+
+.agri-loader__orbit-stroke {
+  fill: none;
+  stroke: #6cab5c;
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  stroke-dasharray: 28 98;
+}
+
+.agri-loader__stem {
+  fill: none;
+  stroke: #347849;
+  stroke-width: 2.7;
+  stroke-linecap: round;
+}
+
+.agri-loader__leaf path:first-child {
+  fill: #4b9855;
+}
+
+.agri-loader__leaf--right path:first-child {
+  fill: #80b84c;
+}
+
+.agri-loader__vein {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.72);
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+
+.agri-loader__leaf--left {
+  transform-box: view-box;
+  transform-origin: 49% 59%;
+  animation: agri-loader-sway-left 1.7s ease-in-out infinite;
+}
+
+.agri-loader__leaf--right {
+  transform-box: view-box;
+  transform-origin: 50% 47%;
+  animation: agri-loader-sway-right 1.7s ease-in-out infinite;
+}
+
+.agri-loader__soil {
+  fill: none;
+  stroke: #99744b;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+.agri-loader__label {
+  color: #536a54;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.agri-loader--sm {
+  --agri-loader-size: 19px;
+  gap: 6px;
+}
+
+.agri-loader--md {
+  --agri-loader-size: 34px;
+}
+
+.agri-loader--lg {
+  --agri-loader-size: 46px;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.agri-loader--panel {
+  display: flex;
+  width: 100%;
+  min-height: 98px;
+  padding: 22px 18px;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid #e2e9df;
+  border-radius: 16px;
+  background: #fff;
+  text-align: center;
+}
+
+.agri-loader--panel .agri-loader__label {
+  max-width: 100%;
+  font-size: 11px;
+}
+
+.agri-loader--button {
+  color: currentColor;
+  line-height: 1;
+}
+
+.agri-loader--button .agri-loader__track {
+  stroke: rgba(255, 255, 255, 0.34);
+}
+
+.agri-loader--button .agri-loader__orbit-stroke {
+  stroke: #f1f7df;
+}
+
+.agri-loader--button .agri-loader__stem {
+  stroke: #f5f8e9;
+}
+
+.agri-loader--button .agri-loader__leaf path:first-child {
+  fill: #e5f2c8;
+}
+
+.agri-loader--button .agri-loader__leaf--right path:first-child {
+  fill: #cbe69a;
+}
+
+.agri-loader--button .agri-loader__soil {
+  stroke: #e8d2a8;
+}
+
+@keyframes agri-loader-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes agri-loader-sway-left {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-5deg);
+  }
+}
+
+@keyframes agri-loader-sway-right {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agri-loader__orbit,
+  .agri-loader__leaf--left,
+  .agri-loader__leaf--right {
+    animation: none;
+  }
+}

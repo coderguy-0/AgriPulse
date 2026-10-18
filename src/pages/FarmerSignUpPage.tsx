@@ -13,6 +13,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { AgriPulseLogo } from '../components/AgriPulseLogo';
+import { AgriPulseLoader } from '../components/AgriPulseLoader';
 import { useAgriPulse } from '../context/AgriPulseContext';
 
 export const FarmerSignUpPage: React.FC = () => {
@@ -303,7 +304,7 @@ export const FarmerSignUpPage: React.FC = () => {
                   className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-forest-950 hover:bg-forest-900 text-white font-bold text-sm shadow-sm transition"
                 >
                   <span>{isSubmitting ? 'Creating account…' : 'Create Farmer Account'}</span>
-                  <ArrowRight className="w-4 h-4 text-leaf-400" />
+                  {isSubmitting ? <AgriPulseLoader size="sm" className="agri-loader--button" /> : <ArrowRight className="w-4 h-4 text-leaf-400" />}
                 </button>
               </div>
             </div>

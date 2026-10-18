@@ -10,6 +10,7 @@ import {
   Sparkles,
   Sprout,
 } from 'lucide-react';
+import { AgriPulseLoader } from './AgriPulseLoader';
 import { useFarmScope } from '../hooks/useFarmScope';
 import {
   EmptyState,
@@ -94,7 +95,7 @@ export const FieldIntelligencePanel: React.FC<{ compact?: boolean }> = ({ compac
             onClick={() => void scope.refreshTelemetry()}
             disabled={scope.telemetryLoading}
           >
-            <RefreshCw size={13} className={scope.telemetryLoading ? 'animate-spin' : ''} />
+            {scope.telemetryLoading ? <AgriPulseLoader size="sm" /> : <RefreshCw size={13} />}
             {scope.telemetryLoading ? 'Checking…' : 'Refresh readings'}
           </button>
           <Link className="ap-btn ap-btn--primary ap-btn--sm" to="/monitoring">

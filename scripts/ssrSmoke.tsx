@@ -1,9 +1,9 @@
 /**
  * Render smoke test.
  *
- * Renders every page component (public site and farmer portal) through React's server renderer with
- * a stubbed browser storage layer. This catches render-time crashes, bad hooks and broken imports
- * across the whole route surface without needing a browser.
+ * Renders every public, farmer and seller page plus the shared loader through React's server
+ * renderer with a stubbed browser storage layer. This catches render-time crashes, bad hooks,
+ * inaccessible status markup and broken imports across the route surface without a browser.
  *
  * Run with: npm run test:render
  */
@@ -16,6 +16,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AgriPulseProvider } from '../src/context/AgriPulseContext';
 
 import { SiteLayout } from '../src/components/SiteLayout';
+import { AgriPulseLoader } from '../src/components/AgriPulseLoader';
 import { SiteHomePage } from '../src/pages/site/SiteHomePage';
 import {
   AboutPage,
@@ -141,7 +142,25 @@ const portalCases: SiteCase[] = [
   { name: 'farmer signup', path: '/farmer/signup', element: <FarmerSignUpPage />, expect: ['Sign'] },
   { name: 'seller login', path: '/login', element: <LoginPage />, expect: ['Sign'] },
   { name: 'seller signup', path: '/signup', element: <SellerSignUpPage />, expect: ['Sign'] },
-  { name: 'seller portal', path: '/seller', element: <SellerPortalPage />, expect: ['Seller'] },
+  {
+    name: 'seller portal',
+    path: '/seller',
+    element: <SellerPortalPage />,
+    expect: [
+      'Seller Central Hub',
+      'Seller Workspace',
+      'Business Management',
+      'Dashboard Overview',
+      'Catalog &amp; Inventory',
+      'Financials &amp; Payouts',
+      'Store Profile &amp; GSTIN',
+      'seller portal navigation',
+      'aria-current="page"',
+      'Open seller navigation menu',
+      'aria-controls="seller-mobile-navigation"',
+      'Sign out',
+    ],
+  },
   { name: 'floating assistant', path: '/home', element: <FloatingAIChat />, expect: [] },
 ];
 
@@ -154,6 +173,26 @@ function render(element: React.ReactNode, path: string): string {
       <MemoryRouter initialEntries={[path]}>{element}</MemoryRouter>
     </AgriPulseProvider>,
   );
+}
+
+try {
+  const html = render(
+    <AgriPulseLoader variant="panel" size="lg" label="Loading your farm data…" />,
+    '/loader-check',
+  );
+  const required = ['role="status"', 'aria-live="polite"', 'agri-loader--panel', 'agri-loader__leaf--left', 'Loading your farm data…'];
+  const missing = required.filter((needle) => !html.includes(needle));
+  if (missing.length > 0) {
+    failures += 1;
+    console.error(`FAIL  agriculture loader — missing: ${missing.join(' | ')}`);
+  } else {
+    passes += 1;
+    console.log('ok    agriculture loader (sprout art, panel variant, accessible status)');
+  }
+} catch (error) {
+  failures += 1;
+  console.error('ERROR agriculture loader');
+  console.error(error instanceof Error ? error.stack : error);
 }
 
 for (const testCase of siteCases) {
@@ -299,8 +338,8 @@ try {
 }
 
 if (failures > 0) {
-  console.error(`\n${failures} of ${siteCases.length + portalCases.length + 2} checks failed (${passes} passed).`);
+  console.error(`\n${failures} of ${passes + failures} checks failed (${passes} passed).`);
   process.exitCode = 1;
 } else {
-  console.log(`\nAll ${passes} page renders and link checks passed.`);
+  console.log(`\nAll ${passes} render and navigation checks passed.`);
 }

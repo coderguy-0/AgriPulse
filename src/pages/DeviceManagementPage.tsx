@@ -14,6 +14,7 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { DeviceRegistrationWizard } from '../components/DeviceRegistrationWizard';
+import { AgriPulseLoader } from '../components/AgriPulseLoader';
 import { DeviceStatusBadge } from '../components/DeviceStatusBadge';
 import { useAgriPulse } from '../context/AgriPulseContext';
 import { DeviceStatus, IoTDevice } from '../types';
@@ -143,7 +144,7 @@ export const DeviceManagementPage: React.FC = () => {
           <label className="devices-filter-field devices-search-field"><span>Search</span><div className="devices-search-wrap"><Search size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, location, identifier…" /></div></label>
         </div>
 
-        {devicesLoading ? <div role="status" className="devices-empty-state">Loading secure device registry…</div> : filteredDevices.length ? (
+        {devicesLoading ? <div className="devices-empty-state"><AgriPulseLoader label="Loading secure device registry…" /></div> : filteredDevices.length ? (
           <div className="device-card-grid">
             {filteredDevices.map((device) => {
               const Icon = device.type === 'sensor_node' ? Cpu : RadioTower;

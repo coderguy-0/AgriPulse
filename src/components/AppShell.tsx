@@ -40,6 +40,7 @@ import {
   Info,
 } from 'lucide-react';
 import { AgriPulseLogo } from './AgriPulseLogo';
+import { AgriPulseLoader } from './AgriPulseLoader';
 /**
  * The floating assistant is loaded on first use: it pulls in the disease reference index, which
  * would otherwise sit in the entry bundle for every farmer opening the dashboard.
@@ -737,8 +738,9 @@ export const AppShell: React.FC = () => {
             Workspace changes could not be saved: {workspaceSyncError}
           </div>
         ) : workspaceSyncStatus === 'saving' ? (
-          <div role="status" className="mx-4 mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-900 sm:mx-6 lg:mx-8">
-            Saving workspace changes to the AGRIPULSE API…
+          <div role="status" className="mx-4 mt-3 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-900 sm:mx-6 lg:mx-8">
+            <AgriPulseLoader size="sm" />
+            <span>Saving workspace changes to the AGRIPULSE API…</span>
           </div>
         ) : null}
 
