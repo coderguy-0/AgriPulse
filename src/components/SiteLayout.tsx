@@ -7,19 +7,10 @@ import { useAgriPulse } from '../context/AgriPulseContext';
 const PRIMARY_LINKS = [
   { to: '/', label: 'Home', end: true },
   { to: '/platform', label: 'Platform' },
-  { to: '/ai-capabilities', label: 'AI capabilities' },
-  { to: '/digital-twin', label: 'Digital twin' },
   { to: '/how-it-works', label: 'How it works' },
   { to: '/technology', label: 'Technology' },
-  { to: '/impact', label: 'Innovation & impact' },
-  { to: '/roadmap', label: 'Roadmap' },
 ];
-
-const SECONDARY_LINKS = [
-  { to: '/about', label: 'About' },
-  { to: '/faq', label: 'FAQ' },
-  { to: '/contact', label: 'Contact' },
-];
+const SECONDARY_LINKS = [{ to: '/about', label: 'About' }];
 
 const FOOTER_GROUPS: { title: string; links: { to: string; label: string }[] }[] = [
   {
@@ -40,6 +31,8 @@ const FOOTER_GROUPS: { title: string; links: { to: string; label: string }[] }[]
       { to: '/roadmap', label: 'Roadmap' },
       { to: '/contact', label: 'Contact' },
       { to: '/faq', label: 'FAQ' },
+      { to: '/privacy', label: 'Privacy & your data' },
+      { to: '/terms', label: 'Terms of use' },
     ],
   },
   {
@@ -79,7 +72,7 @@ export const SiteLayout: React.FC = () => {
       </a>
 
       <header className="ap-site-header">
-        <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center gap-3 px-4 py-4 sm:px-6">
           <Link to="/" className="shrink-0" aria-label="AGRIPULSE home">
             <AgriPulseLogo size="md" />
           </Link>

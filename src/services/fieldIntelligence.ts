@@ -162,9 +162,15 @@ const MOISTURE_REFERENCE: Record<string, { min: number; max: number; note: strin
   Harvested: { min: 20, max: 60, note: 'Post-harvest field condition' },
 };
 
+/** Sample or expired forecasts must never drive real irrigation or disease-risk decisions. */
+const hasCurrentProviderWeather = (weather: WeatherSnapshot): boolean =>
+  weather.sourceType === 'Live API' && Number.isFinite(Date.parse(weather.updatedAt)) &&
+  Date.now() - Date.parse(weather.updatedAt) < 2 * 3600_000 && Date.parse(weather.updatedAt) <= Date.now() + 300_000;
+
 const SOIL_WATER_SENSORS: InstalledSensorType[] = ['soil_moisture', 'soil_temperature'];
 
 export const SENSOR_LABELS: Record<InstalledSensorType, { label: string; unit: string; decimals: number }> = {
+  air_humidity: { label: 'Air humidity', unit: '%', decimals: 0 },
   soil_moisture: { label: 'Soil moisture', unit: '%', decimals: 0 },
   soil_temperature: { label: 'Soil temperature', unit: '°C', decimals: 1 },
   air_temperature_humidity: { label: 'Air temperature & humidity', unit: '°C / %', decimals: 1 },
@@ -179,12 +185,14 @@ export const SENSOR_LABELS: Record<InstalledSensorType, { label: string; unit: s
 export const CHARTABLE_SENSORS: InstalledSensorType[] = [
   'soil_moisture',
   'soil_temperature',
+  'air_humidity',
   'soil_ph',
   'light',
   'battery_voltage',
 ];
 
 const TELEMETRY_UNITS: Partial<Record<InstalledSensorType, string>> = {
+  air_humidity: '%',
   soil_moisture: '%',
   soil_temperature: '°C',
   soil_ph: 'pH',
@@ -200,14 +208,14 @@ export const unitForSensor = (sensor: InstalledSensorType): string => TELEMETRY_
 
 const validReadings = (readings: TelemetryReading[] = []): TelemetryReading[] =>
   readings
-    .filter((reading) => reading.quality !== 'invalid' && Number.isFinite(reading.value))
+    .filter((reading) => reading.quality !== 'invalid' && reading.quality !== 'suspect' && Number.isFinite(reading.value) && Number.isFinite(Date.parse(reading.measuredAt)) && Date.parse(reading.measuredAt) <= Date.now() + 300_000)
     .sort((a, b) => new Date(b.measuredAt).getTime() - new Date(a.measuredAt).getTime());
 
 export function latestReading(
   readings: TelemetryReading[],
   sensorType: InstalledSensorType,
 ): TelemetryReading | undefined {
-  return validReadings(readings).find((reading) => reading.sensorType === sensorType);
+  return validReadings(readings).find((reading) => reading.sensorType === sensorType && reading.unit !== 'raw');
 }
 
 export interface SensorSeriesPoint {
@@ -219,7 +227,7 @@ export interface SensorSeriesPoint {
 /** Builds a chart-ready series for one sensor from physical-sensor readings only. */
 export function buildSensorSeries(readings: TelemetryReading[], sensorType: InstalledSensorType): SensorSeriesPoint[] {
   return validReadings(readings)
-    .filter((reading) => reading.sensorType === sensorType)
+    .filter((reading) => reading.sensorType === sensorType && reading.unit !== 'raw' && reading.sensorType !== 'soil_npk')
     .map((reading) => {
       const timestamp = new Date(reading.measuredAt).getTime();
       return {
@@ -315,7 +323,7 @@ function assessIrrigation(
   const recentRain = rainfallLogs
     .filter((log) => Date.now() - new Date(log.date).getTime() <= 1000 * 60 * 60 * 72)
     .reduce((total, log) => total + (Number.isFinite(log.amountMm) ? log.amountMm : 0), 0);
-  const rainNext24h = weather.daily?.[0]?.expectedRainMm ?? null;
+  const rainNext24h = hasCurrentProviderWeather(weather) ? weather.daily?.[0]?.expectedRainMm ?? null : null;
 
   const inputs: IrrigationAssessment['inputs'] = [
     {
@@ -608,7 +616,7 @@ export function buildAlerts(input: FieldIntelligenceInput, zones: ZoneSnapshot[]
     }
   }
 
-  for (const warning of weather.warnings || []) {
+  for (const warning of hasCurrentProviderWeather(weather) ? weather.warnings || [] : []) {
     alerts.push({
       id: `alert-weather-${warning.id}`,
       severity: warning.severity === 'Warning' ? 'critical' : warning.severity === 'Watch' ? 'warning' : 'advisory',
@@ -800,7 +808,7 @@ export function buildStressIndicators(input: FieldIntelligenceInput, zones: Zone
 
   const humidity = input.weather.humidityPct;
   const rainProbability = input.weather.rainProbabilityPct;
-  if (Number.isFinite(humidity)) {
+  if (hasCurrentProviderWeather(input.weather) && Number.isFinite(humidity)) {
     const diseaseFavourable = humidity >= 80 && rainProbability >= 40;
     indicators.push({
       id: 'stress-humidity-forecast',

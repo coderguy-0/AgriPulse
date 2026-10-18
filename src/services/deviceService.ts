@@ -26,15 +26,12 @@ export const DEVICE_TYPE_META: Record<DeviceType, { label: string; description: 
   lora_gateway: { label: 'LoRa gateway', description: 'A secure field gateway that relays node messages to the service.' },
 };
 
+/** The current approved hardware set. Legacy readings remain readable, not selectable. */
 export const SENSOR_OPTIONS = [
-  { value: 'soil_moisture', label: 'Soil moisture' },
+  { value: 'soil_moisture', label: 'Capacitive soil moisture' },
+  { value: 'soil_npk', label: 'Soil NPK · nitrogen, phosphorus & potassium' },
   { value: 'soil_temperature', label: 'Soil temperature' },
-  { value: 'air_temperature_humidity', label: 'Air temperature & humidity' },
-  { value: 'light', label: 'Light intensity' },
-  { value: 'soil_ph', label: 'Soil pH' },
-  { value: 'soil_npk', label: 'NPK interface' },
-  { value: 'battery_voltage', label: 'Battery voltage' },
-  { value: 'standing_water', label: 'Standing-water detection' },
+  { value: 'air_humidity', label: 'Air humidity' },
 ] as const;
 
 export function validateDeviceRegistration(

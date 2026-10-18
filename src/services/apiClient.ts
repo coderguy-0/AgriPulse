@@ -36,6 +36,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       ...init,
       headers,
       credentials: 'include',
+      signal: init.signal || AbortSignal.timeout(15_000),
       cache: 'no-store',
     });
   } catch {

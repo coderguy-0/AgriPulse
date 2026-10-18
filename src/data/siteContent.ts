@@ -78,14 +78,14 @@ export const PLATFORM_MODULES: PlatformModule[] = [
   {
     id: 'soil',
     name: 'Soil health',
-    summary: 'Moisture, temperature and pH measurement where sensors exist, plus an explicit lab-test list.',
+    summary: 'Calibrated soil moisture, temperature and NPK readings where available, plus an explicit lab-test list.',
     details: [
       'Nutrient values are never invented: NPK, organic carbon and salinity require a lab test.',
       'Reference bands are labelled as generic guidance, not field calibration.',
       'Table views export to CSV for a farm file or an extension officer visit.',
     ],
     status: 'available',
-    statusNote: 'Needs a paired soil-moisture or pH node for continuous data.',
+    statusNote: 'Needs a paired approved sensor node for continuous measurements. Legacy pH records remain readable.',
   },
   {
     id: 'crop-health',
@@ -190,7 +190,7 @@ export const CAPABILITIES: Capability[] = [
     id: 'soil',
     name: 'Soil intelligence',
     summary: 'Separates measurable soil parameters from those that require laboratory analysis.',
-    how: 'Displays moisture, temperature and pH when measured, and lists nutrient parameters with the test that is required.',
+    how: 'Displays approved soil measurements and lists parameters that need a laboratory test. Legacy records remain readable.',
     limitation: 'No nutrient, salinity or organic-carbon measurement is available without a lab or handheld kit.',
     status: 'available',
   },

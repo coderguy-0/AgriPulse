@@ -46,6 +46,7 @@ const AccountSettingsPage = lazy(() => import('./pages/AccountSettingsPage').the
 const DeviceManagementPage = lazy(() => import('./pages/DeviceManagementPage').then((m) => ({ default: m.DeviceManagementPage })));
 const DeviceDetailsPage = lazy(() => import('./pages/DeviceDetailsPage').then((m) => ({ default: m.DeviceDetailsPage })));
 const SellerPortalPage = lazy(() => import('./pages/SellerPortalPage').then((m) => ({ default: m.SellerPortalPage })));
+const LegalPage = lazy(() => import('./pages/site/LegalPage').then((m) => ({ default: m.LegalPage })));
 const SiteHomePage = lazy(() => import('./pages/site/SiteHomePage').then((m) => ({ default: m.SiteHomePage })));
 const PlatformPage = lazy(() => import('./pages/site/sitePages').then((m) => ({ default: m.PlatformPage })));
 const AiCapabilitiesPage = lazy(() => import('./pages/site/sitePages').then((m) => ({ default: m.AiCapabilitiesPage })));
@@ -161,6 +162,8 @@ export const App: React.FC = () => {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/faq" element={<FaqPage />} />
             <Route path="/contact" element={<ContactPage />} />
+            <Route path="/privacy" element={<LegalPage />} />
+            <Route path="/terms" element={<LegalPage />} />
           </Route>
 
           {/* Legacy alias kept so previously shared links still resolve */}

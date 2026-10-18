@@ -2,7 +2,7 @@
   "name": "agripulse",
   "private": true,
   "version": "1.0.0",
-  "description": "AGRIPULSE — intelligent farm digital twin and early crop-stress detection platform (farmer and seller portals)",
+  "description": "AGRIPULSE \u2014 intelligent farm digital twin and early crop-stress detection platform (farmer and seller portals)",
   "type": "module",
   "scripts": {
     "dev": "concurrently -k -n API,WEB -c cyan,green \"npm:dev:api\" \"npm:dev:web\"",
@@ -11,12 +11,13 @@
     "start": "node server/index.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
-    "lint": "tsc --noEmit && node --check server/index.mjs && node --check server/app.mjs && node --check server/auth-service.mjs && node --check server/device-service.mjs && node --check server/security.mjs && node --check server/schemas.mjs && node --check server/workspace.mjs",
+    "lint": "tsc --noEmit && node --check server/index.mjs && node --check server/app.mjs && node --check server/auth-service.mjs && node --check server/device-service.mjs && node --check server/security.mjs && node --check server/schemas.mjs && node --check server/workspace.mjs && node --check server/weather-service.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --test server/test/*.test.mjs",
     "test:render": "node scripts/buildSmoke.mjs && node .smoke/ssrSmoke.cjs",
     "test:all": "npm test && npm run test:web && npm run test:render",
-    "test:web": "node scripts/buildTests.mjs && node --test \".smoke/tests/*.test.cjs\""
+    "test:web": "node scripts/buildTests.mjs && node --test \".smoke/tests/*.test.cjs\"",
+    "test:browser": "node scripts/browserSmoke.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
@@ -26,21 +27,29 @@
     "lucide-react": "^0.460.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0",
+    "react-router-dom": "^7.18.4",
     "recharts": "^2.13.3",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@sparticuz/chromium": "^153.0.0",
     "@types/better-sqlite3": "^9.6.0",
     "@types/express": "^5.0.6",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.3",
+    "@vitejs/plugin-react": "^5.2.0",
     "autoprefixer": "^10.4.20",
     "concurrently": "^10.0.6",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
     "typescript": "~5.6.2",
-    "vite": "^5.4.11"
+    "vite": "^7.3.7"
+  },
+  "engines": {
+    "node": ">=22.22.0"
+  },
+  "overrides": {
+    "postcss-selector-parser": "^7.1.6"
   }
 }

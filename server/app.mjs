@@ -1,10 +1,12 @@
+import { createWeatherService, WeatherError } from './weather-service.mjs';
+import { z } from 'zod';
 import express from 'express';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
 import { randomUUID } from 'node:crypto';
-import { deviceMetadataPatchSchema, deviceRegistrationSchema, demoSessionSchema, gatewayAssignmentSchema, loginSchema, pairingCompleteSchema, portalSwitchSchema, registerSchema, telemetryIngestSchema } from './schemas.mjs';
+import { deviceMetadataPatchSchema, deviceRegistrationSchema, demoSessionSchema, gatewayAssignmentSchema, loginSchema, pairingCompleteSchema, portalSwitchSchema, registerSchema, telemetryIngestSchema, heartbeatSchema } from './schemas.mjs';
 import { clearSession, createSession, getUserByEmail, getUserById, insertUser, readSessionFromRequest, toClientSession } from './auth-service.mjs';
-import { assignGateway, completePairing, createPairingSession, getDevice, getDeviceEvents, getTelemetry, ingestTelemetry, listDevices, registerDevice, retireDevice, updateDeviceMetadata } from './device-service.mjs';
+import { assignGateway, completePairing, createPairingSession, getDevice, getDeviceEvents, getTelemetry, ingestTelemetry, listDevices, registerDevice, retireDevice, updateDeviceMetadata, recordHeartbeat } from './device-service.mjs';
 import { newId, hashPassword, sha256, verifyPassword } from './security.mjs';
 import { readWorkspace, storeAuditEvent, writeWorkspace } from './workspace.mjs';
 
@@ -166,7 +168,7 @@ function seedDevelopmentDevices(db, user) {
     },
     {
       id: 'device-demo-node-01', farmId: 'farm-001', plotId: 'plot-101', gatewayId: 'device-demo-gateway-01', type: 'sensor_node', name: 'North Canal Soil Node', serialNumber: 'AP-DEMO-ND-001',
-      metadata: { locationLabel: 'North boundary, beside the canal bund', latitude: 29.7862, longitude: 76.9347, installedAt: '2026-10-08', installedSensors: ['soil_moisture', 'soil_temperature', 'air_temperature_humidity', 'battery_voltage'], powerSource: 'solar_battery', samplingIntervalMinutes: 30, communicationProfile: 'Inherited from gateway at commissioning', calibrationStatus: 'not_calibrated', notes: 'Sample registration only. Pairing and calibration have not been completed.' },
+      metadata: { locationLabel: 'North boundary, beside the canal bund', latitude: 29.7862, longitude: 76.9347, installedAt: '2026-10-08', installedSensors: ['soil_moisture', 'soil_temperature', 'air_humidity', 'soil_npk'], powerSource: 'solar_battery', samplingIntervalMinutes: 30, communicationProfile: 'Inherited from gateway at commissioning', calibrationStatus: 'not_calibrated', notes: 'Sample registration only. Pairing and calibration have not been completed.' },
       createdAt: '2026-10-08T06:15:00.000Z',
     },
   ];
@@ -188,6 +190,7 @@ function seedDevelopmentDevices(db, user) {
 export function createApp({ db, environment = process.env, logger = console } = {}) {
   if (!db) throw new Error('createApp requires a database instance.');
   const app = express();
+  const weatherService = createWeatherService({ environment });
   const isProduction = environment.NODE_ENV === 'production';
   const allowedOrigins = new Set(String(environment.WEB_ORIGINS || environment.WEB_ORIGIN || '').split(',').map((value) => value.trim()).filter(Boolean));
   const onlineWindowSeconds = Math.max(60, Math.min(Number(environment.DEVICE_ONLINE_WINDOW_SECONDS || 300), 86400));
@@ -196,7 +199,7 @@ export function createApp({ db, environment = process.env, logger = console } = 
   app.set('trust proxy', environment.TRUST_PROXY === 'true' ? 1 : false);
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use((req, res, next) => {
-    req.requestId = req.get('x-request-id')?.slice(0, 100) || randomUUID();
+    req.requestId = randomUUID();
     res.setHeader('X-Request-Id', req.requestId);
     res.setHeader('Cache-Control', 'no-store');
     const origin = req.get('origin');
@@ -208,6 +211,10 @@ export function createApp({ db, environment = process.env, logger = console } = 
       res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, If-Match, X-Request-Id');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    }
+    // SameSite cookies plus JSON-only mutation bodies and browser Fetch Metadata protection.
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.get('sec-fetch-site') === 'cross-site') {
+      return apiError(res, 403, 'CSRF_REJECTED', 'Cross-site changes are not permitted.', req.requestId);
     }
     if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
@@ -357,9 +364,21 @@ export function createApp({ db, environment = process.env, logger = console } = 
       expectedRevision = Number(ifMatch.replaceAll('"', ''));
       if (!Number.isInteger(expectedRevision) || expectedRevision < 0) return apiError(res, 400, 'INVALID_REVISION', 'Workspace revision is invalid.', req.requestId);
     } else if (Number.isInteger(body.revision)) expectedRevision = body.revision;
+    if (expectedRevision === undefined) return apiError(res, 428, 'REVISION_REQUIRED', 'Reload the workspace and send its revision before saving.', req.requestId);
     const result = writeWorkspace(db, { id: req.auth.id, isDemo: req.auth.isDemo }, body.data, expectedRevision);
     if (!result.ok) return routeError(req, res, result);
     return res.json({ initialized: true, revision: result.revision, updatedAt: result.updatedAt, data: result.data });
+  });
+
+  const weatherLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: 'draft-8', legacyHeaders: false });
+  app.get('/api/weather', requireAuth, requireRole(FARMER_ROLE), weatherLimiter, async (req, res) => {
+    const location = z.object({ state: z.string().trim().min(2).max(80).regex(/^[\p{L} .'-]+$/u), district: z.string().trim().min(2).max(100).regex(/^[\p{L} .'-]+$/u) }).strict().safeParse(req.query);
+    if (!location.success) return apiError(res, 400, 'INVALID_LOCATION', 'Choose a valid Indian state and district.', req.requestId);
+    try { return res.json(await weatherService.get(location.data)); }
+    catch (error) {
+      if (error instanceof WeatherError) return apiError(res, error.status, error.code, error.message, req.requestId);
+      throw error;
+    }
   });
 
   app.get('/api/farms', requireAuth, (req, res) => {
@@ -420,7 +439,7 @@ export function createApp({ db, environment = process.env, logger = console } = 
 
   app.get('/api/devices/:deviceId/telemetry', requireAuth, requireRole(FARMER_ROLE), (req, res) => {
     const { from, to } = req.query;
-    const limit = Math.min(500, Math.max(1, Number(req.query.limit) || 500));
+    const limit = Math.min(500, Math.max(1, Math.floor(Number(req.query.limit) || 500)));
     const parseDate = (value) => typeof value === 'string' && !Number.isNaN(Date.parse(value)) ? new Date(value).toISOString() : null;
     const fromDate = from === undefined ? undefined : parseDate(from);
     const toDate = to === undefined ? undefined : parseDate(to);
@@ -432,7 +451,7 @@ export function createApp({ db, environment = process.env, logger = console } = 
   });
 
   app.get('/api/devices/:deviceId/events', requireAuth, requireRole(FARMER_ROLE), (req, res) => {
-    const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 100));
+    const limit = Math.min(200, Math.max(1, Math.floor(Number(req.query.limit) || 100)));
     const events = getDeviceEvents(db, req.auth, req.params.deviceId, limit);
     if (events === null) return apiError(res, 404, 'DEVICE_NOT_FOUND', 'Device record not found in this account.', req.requestId);
     return res.json({ events });
@@ -444,6 +463,15 @@ export function createApp({ db, environment = process.env, logger = console } = 
     const result = completePairing(db, input.pairingToken);
     if (!result.ok) return routeError(req, res, result);
     return res.json(result);
+  });
+
+  app.post('/api/device-ingest/heartbeat', telemetryLimiter, (req, res) => {
+    if (!validateBody(heartbeatSchema, req, res)) return;
+    const match = (req.get('authorization') || '').match(/^Bearer\s+([A-Za-z0-9_-]{32,256})$/i);
+    if (!match) return apiError(res, 401, 'DEVICE_AUTH_REQUIRED', 'A device bearer credential is required.', req.requestId);
+    const result = recordHeartbeat(db, match[1]);
+    if (!result.ok) return routeError(req, res, result);
+    return res.status(202).json(result);
   });
 
   app.post('/api/device-ingest/telemetry', telemetryLimiter, (req, res) => {

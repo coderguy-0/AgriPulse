@@ -259,7 +259,7 @@ export const DeviceDetailsPage: React.FC = () => {
               <p role="status" className="device-empty-events"><AgriPulseLoader size="sm" /> Loading authenticated device history…</p>
             ) : readings.length ? (
               <div className="device-reading-list">
-                {readings.slice(0, 8).map((reading) => <div key={reading.id} className="device-reading-row"><div><strong>{sensorName(reading.sensorType)}</strong><small>{formatTimestamp(reading.measuredAt)} · {reading.source === 'demo' ? 'Demo reading' : 'Physical sensor'}</small></div><span>{reading.value} {reading.unit}</span></div>)}
+                {readings.slice(0, 8).map((reading) => <div key={reading.id} className="device-reading-row"><div><strong>{sensorName(reading.sensorType)}{reading.component ? ` · ${reading.component}` : ''}</strong><small>{formatTimestamp(reading.measuredAt)} · {reading.source === 'demo' ? 'Demo reading' : `Physical sensor · ${reading.measurementKind || 'legacy conversion unspecified'}`}</small></div><span>{reading.value} {reading.unit}</span></div>)}
               </div>
             ) : (
               <div className="device-no-telemetry"><span className="device-telemetry-empty-icon"><Signal size={21} /></span><div><strong>No telemetry received yet</strong><p>No heartbeat or sensor reading has been received for this device. Values are not shown as zero because nothing has been measured.</p></div></div>

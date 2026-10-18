@@ -19,7 +19,7 @@ export const registerSchema = z.discriminatedUnion('portalType', [
     name: text(100).min(2),
     village: optionalText(100),
     primaryCrop: optionalText(80),
-    landArea: z.union([z.number().min(0).max(100000), z.string().trim().max(20)]).optional(),
+    landArea: z.coerce.number().finite().min(0).max(100000).optional(),
   }).strict(),
   z.object({
     portalType: z.literal('seller'),
@@ -46,16 +46,7 @@ export const loginSchema = z.object({
 export const demoSessionSchema = z.object({ portalType: z.enum(['farmer', 'seller']) }).strict();
 export const portalSwitchSchema = z.object({ portalType: z.enum(['farmer', 'seller']) }).strict();
 
-const installedSensor = z.enum([
-  'soil_moisture',
-  'soil_temperature',
-  'air_temperature_humidity',
-  'light',
-  'soil_ph',
-  'soil_npk',
-  'battery_voltage',
-  'standing_water',
-]);
+const installedSensor = z.enum(['soil_moisture', 'soil_temperature', 'air_humidity', 'soil_npk']);
 const powerSource = z.enum(['solar_battery', 'battery', 'mains', 'other']);
 const backhaulType = z.enum(['wifi', 'ethernet', 'cellular', 'other']);
 const dateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional();
@@ -74,7 +65,7 @@ export const deviceRegistrationSchema = z.object({
   longitude: z.number().finite().min(-180).max(180).optional(),
   installedAt: dateOnly,
   gatewayId: z.string().trim().min(1).max(100).optional(),
-  installedSensors: z.array(installedSensor).max(8).optional(),
+  installedSensors: z.array(installedSensor).max(4).refine((items) => new Set(items).size === items.length, 'Select each sensor only once.').optional(),
   backhaulType: backhaulType.optional(),
   powerSource: powerSource.optional(),
   samplingIntervalMinutes: z.number().int().min(1).max(1440).optional(),
@@ -115,8 +106,13 @@ export const pairingCompleteSchema = z.object({ pairingToken: z.string().min(20)
 export const telemetryIngestSchema = z.object({
   readings: z.array(z.object({
     sensorType: installedSensor,
+    component: z.enum(['nitrogen', 'phosphorus', 'potassium']).optional(),
+    measurementKind: z.enum(['raw', 'calibrated']).optional().default('raw'),
+    calibrationMethod: text(500).min(3).optional(),
     value: z.number().finite(),
     unit: z.string().trim().min(1).max(20),
     measuredAt: z.string().datetime({ offset: true }),
   }).strict()).min(1).max(40),
 }).strict();
+
+export const heartbeatSchema = z.object({}).strict();

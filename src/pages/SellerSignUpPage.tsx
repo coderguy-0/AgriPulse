@@ -373,6 +373,7 @@ export const SellerSignUpPage: React.FC = () => {
               </label>
             </div>
 
+            <p className="text-xs leading-relaxed text-slate-600">Please read the <Link to="/terms" className="underline text-forest-800">terms of use</Link> and <Link to="/privacy" className="underline text-forest-800">privacy notice</Link> before creating your account.</p>
             {/* Form Actions */}
             <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="text-xs text-slate-500">

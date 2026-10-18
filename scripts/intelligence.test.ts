@@ -111,9 +111,9 @@ const WEATHER: WeatherSnapshot = {
   cloudCoverPct: 15,
   visibilityKm: 8,
   soilTempEstimateC: 26,
-  sourceType: 'Demo Fallback Forecast',
-  sourceProvider: 'Labelled sample forecast',
-  updatedAt: '2026-10-15T06:00:00.000Z',
+  sourceType: 'Live API',
+  sourceProvider: 'Test fixture provider',
+  updatedAt: new Date().toISOString(),
   hourly: [],
   daily: [
     {
@@ -277,6 +277,21 @@ describe('zone snapshots', () => {
     )[0];
     assert.equal(zone.irrigation.action, 'hold');
     assert.match(zone.irrigation.rationale, /forecast/i);
+  });
+
+  it('never uses sample or expired rainfall to delay irrigation', () => {
+    for (const weather of [
+      { ...WEATHER, sourceType: 'Demo Fallback Forecast' as const, daily: [{ ...WEATHER.daily[0], expectedRainMm: 40 }] },
+      { ...WEATHER, updatedAt: '2020-01-01T00:00:00Z', daily: [{ ...WEATHER.daily[0], expectedRainMm: 40 }] },
+    ]) {
+      const zone = buildZoneSnapshots(baseInput({ weather, readingsByDevice: { 'node-1': [reading({ value: 42 })] } }))[0];
+      assert.equal(zone.irrigation.action, 'irrigate_soon');
+    }
+  });
+
+  it('does not interpret raw moisture counts as a percentage', () => {
+    const zone = buildZoneSnapshots(baseInput({ readingsByDevice: { 'node-1': [reading({ value: 2000, unit: 'raw', measurementKind: 'raw' })] } }))[0];
+    assert.equal(zone.irrigation.action, 'collect_data');
   });
 
   it('falls back to a farmer observation when no sensor reading exists', () => {
