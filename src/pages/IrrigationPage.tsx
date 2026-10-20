@@ -72,6 +72,13 @@ export const IrrigationPage: React.FC = () => {
     () => rainfallLogs.filter((log) => log.farmId === scope.farmId).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5),
     [rainfallLogs, scope.farmId],
   );
+  // Rainfall actually logged inside the same 72-hour window the irrigation rules use.
+  const loggedRainLast72h = useMemo(() => {
+    const cutoff = Date.now() - 72 * 3600 * 1000;
+    return rainfallLogs
+      .filter((log) => log.farmId === scope.farmId && new Date(log.date).getTime() >= cutoff)
+      .reduce((total, log) => total + (Number.isFinite(log.amountMm) ? log.amountMm : 0), 0);
+  }, [rainfallLogs, scope.farmId]);
 
   const submitRainfall = (event: React.FormEvent) => {
     event.preventDefault();
@@ -219,7 +226,7 @@ export const IrrigationPage: React.FC = () => {
                         </span>
                         <span className="ap-chip">
                           <Waves size={12} aria-hidden="true" />
-                          3-day logged rain: <strong>{recentRainLogs.slice(0, 3).reduce((total, log) => total + log.amountMm, 0).toFixed(1)} mm</strong>
+                          3-day logged rain: <strong>{loggedRainLast72h.toFixed(1)} mm</strong>
                           <ProvenanceTag kind="recorded" />
                         </span>
                       </div>

@@ -156,8 +156,15 @@ export const FarmManagementPage: React.FC = () => {
   const [cropPlotId, setCropPlotId] = useState('');
   const [cropArea, setCropArea] = useState('2.0');
   const [cropAreaUnit, setCropAreaUnit] = useState<AreaUnit>('acre');
-  const [cropSowingDate, setCropSowingDate] = useState('2026-10-12');
-  const [cropHarvestDate, setCropHarvestDate] = useState('2027-04-05');
+  const [cropSowingDate, setCropSowingDate] = useState(() => {
+    const now = new Date();
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+  });
+  const [cropHarvestDate, setCropHarvestDate] = useState(() => {
+    const harvest = new Date();
+    harvest.setMonth(harvest.getMonth() + 6);
+    return new Date(harvest.getTime() - harvest.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+  });
   const [cropStage, setCropStage] = useState<CropGrowthStage>('Sowing / Transplanting');
   const [cropIrrig, setCropIrrig] = useState('Border Strip Irrigation');
   const [cropHealth, setCropHealth] = useState<CropRecord['healthStatus']>('Healthy');

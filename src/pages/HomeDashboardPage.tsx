@@ -53,6 +53,12 @@ const ACTIVITY_CATEGORIES: ActivityCategory[] = [
   'General Fieldwork',
 ];
 
+/** Local calendar date (yyyy-mm-dd) for defaulting new records to today. */
+const todayLocal = (): string => {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+};
+
 export const HomeDashboardPage: React.FC = () => {
   const {
     profile,
@@ -82,10 +88,7 @@ export const HomeDashboardPage: React.FC = () => {
   const [editingActivity, setEditingActivity] = useState<FarmActivity | null>(null);
   const [actTitle, setActTitle] = useState('');
   const [actCategory, setActCategory] = useState<ActivityCategory>('Irrigation');
-  const [actDate, setActDate] = useState(() => {
-    const now = new Date();
-    return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-  });
+  const [actDate, setActDate] = useState(todayLocal);
   const [actPriority, setActPriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
   const [actPlotName, setActPlotName] = useState('');
   const [actCropName, setActCropName] = useState('');
@@ -180,7 +183,7 @@ export const HomeDashboardPage: React.FC = () => {
         id: 'alert-weather-rain',
         priority: 'High',
         title: `Shower Forecast on ${heavyRainDay.dayLabel} (${heavyRainDay.rainProbPct}% prob, ~${heavyRainDay.expectedRainMm} mm)`,
-        explanation: `${weather.sourceType}: Passing shower and ${heavyRainDay.windKmh} km/h winds expected. Check plot drainage bunds and avoid non-essential irrigation right before Friday.`,
+        explanation: `${weather.sourceType}: Passing shower and ${heavyRainDay.windKmh} km/h winds expected. Check plot drainage bunds and avoid non-essential irrigation in the forecast window.`,
         dateLabel: heavyRainDay.date,
         actionLabel: 'Open Weather Intelligence',
         route: '/weather',
@@ -295,6 +298,7 @@ export const HomeDashboardPage: React.FC = () => {
     setActCategory('Irrigation');
     setActDate('2026-10-15');
     setActPriority('Medium');
+    setActDate(todayLocal());
     setActPlotName(currentFarmPlots[0]?.name || '');
     setActCropName(currentFarmCrops[0]?.cropName || '');
     setActNotes('');

@@ -130,13 +130,23 @@ export const SellerPortalPage: React.FC = () => {
     if (mobileNavOpen) mobileDrawerCloseButtonRef.current?.focus();
   }, [mobileNavOpen]);
 
+  // A listing belongs to this seller when its seller name carries the business name.
+  // An empty business name (fresh account) must never match every product, and the
+  // Karnal sample listings only belong to the development demo workspace.
+  const businessName = sellerProfile.businessName.trim().toLowerCase();
+  const isSellerListing = (product: StoreProduct) => {
+    const sellerName = product.sellerName.toLowerCase();
+    if (session?.isDemo) {
+      if (sellerName.includes('karnal')) return true;
+      if (product.seller?.name?.toLowerCase().includes('karnal')) return true;
+    }
+    return businessName.length > 0 && sellerName.includes(businessName);
+  };
+
   // Filtered Products
   const displayedProducts = useMemo(() => {
     return products.filter((p) => {
-      const isMine =
-        p.sellerName.toLowerCase().includes('karnal') ||
-        p.sellerName.toLowerCase().includes(sellerProfile.businessName.toLowerCase()) ||
-        p.seller?.name?.toLowerCase().includes('karnal');
+      const isMine = isSellerListing(p);
 
       if (catalogFilter === 'mine' && !isMine) {
         return false;
@@ -153,7 +163,7 @@ export const SellerPortalPage: React.FC = () => {
       }
       return true;
     });
-  }, [products, catalogFilter, catalogCategory, catalogSearch, sellerProfile.businessName]);
+  }, [products, catalogFilter, catalogCategory, catalogSearch, businessName, session?.isDemo]);
 
   // Orders statistics
   const pendingOrdersCount = useMemo(
@@ -167,12 +177,8 @@ export const SellerPortalPage: React.FC = () => {
   );
 
   const myListedProductsCount = useMemo(() => {
-    return products.filter(
-      (p) =>
-        p.sellerName.toLowerCase().includes('karnal') ||
-        p.sellerName.toLowerCase().includes(sellerProfile.businessName.toLowerCase())
-    ).length;
-  }, [products, sellerProfile.businessName]);
+    return products.filter((p) => isSellerListing(p)).length;
+  }, [products, businessName, session?.isDemo]);
 
   const filteredOrders = useMemo(() => {
     if (orderStatusFilter === 'All') return orders;
