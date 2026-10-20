@@ -107,7 +107,6 @@ export const DeviceRegistrationWizard: React.FC<DeviceRegistrationWizardProps> =
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [geoMessage, setGeoMessage] = useState('');
   const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [farmSearch, setFarmSearch] = useState('');
 
   const activeFarms = useMemo(() => farms.filter((farm) => !farm.isArchived), [farms]);
   const selectedFarmPlots = useMemo(
@@ -117,9 +116,6 @@ export const DeviceRegistrationWizard: React.FC<DeviceRegistrationWizardProps> =
   const eligibleGateways = useMemo(
     () => devices.filter((device) => device.type === 'lora_gateway' && device.farmId === draft.farmId && device.status !== 'retired'),
     [devices, draft.farmId]
-  );
-  const filteredFarms = activeFarms.filter((farm) =>
-    `${farm.name} ${farm.village} ${farm.district}`.toLowerCase().includes(farmSearch.toLowerCase())
   );
 
   useEffect(() => {

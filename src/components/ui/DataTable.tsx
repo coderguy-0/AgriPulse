@@ -73,13 +73,16 @@ export function DataTable<T>({
     });
   }, [columns, rows, sort]);
 
+  const totalPages = Math.max(1, Math.ceil(rows.length / rowsPerPage));
+  // Clamp the page when the data shrinks (filter, sort or fewer rows) so the
+  // table never renders an empty body while the pager claims more pages exist.
+  const activePage = Math.min(page, totalPages);
+
   const paged = useMemo(() => {
     if (sorted.length < minRowsForPaging) return sorted;
-    const start = (page - 1) * rowsPerPage;
+    const start = (activePage - 1) * rowsPerPage;
     return sorted.slice(start, start + rowsPerPage);
-  }, [sorted, page, rowsPerPage, minRowsForPaging]);
-
-  const totalPages = Math.max(1, Math.ceil(sorted.length / rowsPerPage));
+  }, [sorted, activePage, rowsPerPage, minRowsForPaging]);
 
   if (rows.length === 0) {
     return <EmptyState title={emptyTitle} description={emptyDescription} action={emptyAction} />;
@@ -163,13 +166,13 @@ export function DataTable<T>({
           </label>
           <div className="ap-row" style={{ gap: 8 }}>
             <span className="ap-help">
-              Page {page} of {totalPages} · {sorted.length} records
+              Page {activePage} of {totalPages} · {sorted.length} records
             </span>
             <button
               type="button"
               className="ap-btn ap-btn--secondary ap-btn--sm"
               onClick={() => setPage((value) => Math.max(1, value - 1))}
-              disabled={page === 1}
+              disabled={activePage === 1}
             >
               <ChevronLeft size={13} /> Previous
             </button>
@@ -177,7 +180,7 @@ export function DataTable<T>({
               type="button"
               className="ap-btn ap-btn--secondary ap-btn--sm"
               onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
-              disabled={page >= totalPages}
+              disabled={activePage >= totalPages}
             >
               Next <ChevronRight size={13} />
             </button>
