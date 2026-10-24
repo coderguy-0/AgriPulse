@@ -1,0 +1,22 @@
+# Render Blueprint — one-click deploy of AGRIPULSE as a single web service.
+#
+# Deploy from the Render dashboard: "New +" → "Blueprint" → pick this repository.
+# Or manually: Build command  → npm install && npm run build
+#              Start command  → node server.mjs
+#              (Render injects PORT automatically; NODE_ENV is set below.)
+#
+# Note: the free plan sleeps the service after ~15 minutes of inactivity;
+# the first request after a sleep takes ~30-60s to wake up.
+services:
+  - type: web
+    name: agripulse
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: node server.mjs
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production

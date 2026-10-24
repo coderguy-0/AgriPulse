@@ -59,7 +59,7 @@ const server = app.listen(port, host, () => {
   );
 });
 
-const shutdown = (signal: string) => {
+const shutdown = (signal) => {
   console.info(JSON.stringify({ service: 'agripulse-unified-server', status: 'shutting-down', signal }));
   server.close(() => {
     try {
