@@ -108,15 +108,15 @@ convenience only** — production must use a managed database, not a file-backed
 
 ## Local development
 
-**Requirements:** Node.js 22 or newer and npm.
+**Requirements:** Node.js 20.12 or newer (22+ recommended) and npm.
 
 ```bash
 npm install
 npm run dev
 ```
 
-`npm run dev` starts the API on `0.0.0.0:4000` and Vite on `0.0.0.0:3000`, with `/api` proxied to
-the API. Environment settings: `API_HOST`, `API_PORT`, `AGRIPULSE_DB_PATH`,
+`npm run dev` starts the unified server (Vite + API) on `0.0.0.0:3000`; the API is embedded and
+serves `/api` on the same port. Environment settings: `AGRIPULSE_DB_PATH`,
 `DEVICE_ONLINE_WINDOW_SECONDS`, `ALLOW_DEMO_SESSIONS`, `AGRIPULSE_API_PROXY`.
 
 ### Verification
@@ -139,7 +139,8 @@ features. `.data/`, `dist/` and `.smoke/` are excluded from Git.
 |---|---|
 | `VITE_WEATHER_API_URL` | Frontend endpoint for a weather service; with no value the app shows a **clearly labelled sample forecast** |
 | `VITE_AI_BACKEND_ENDPOINT` | Optional endpoint for richer assistant answers; unused values keep the local rule engine |
-| `ALLOW_DEMO_SESSIONS` | Disables the labelled development demo workspace when set to `false` (also disabled under `NODE_ENV=production`) |
+| `VITE_DEMO_MODE` | Build-time flag (`VITE_DEMO_MODE=true npm run build`): renders the labelled demo launchers on the login page in a production build. Always on in development |
+| `ALLOW_DEMO_SESSIONS` | Controls the labelled development demo workspace: on by default in development, off by default under `NODE_ENV=production`; set `true` to enable it on a production deployment (demo/staging sites) or `false` to disable it anywhere |
 
 Never place provider credentials in a `VITE_*` variable: those values ship to the browser. Weather,
 AI and commerce integrations belong on the server.
@@ -157,6 +158,56 @@ AI and commerce integrations belong on the server.
   thresholds, and the interface says so next to every recommendation.
 - Alert preferences control in-portal highlights only; SMS, email and push delivery are not wired.
 - The demo workspace shares one local database and is not a production account.
+
+## Deploying
+
+**This is a full-stack app, not a static site.** The frontend is a React SPA, but login, the
+farmer/seller portals, devices and weather all talk to the Express API (`/api/*`) served from the
+same origin, backed by a SQLite file. You must deploy it to a host that runs the Node server
+continuously — static-only hosts cannot run the API, so portals will not work there.
+
+### Render (one click)
+
+The repository ships a [Render Blueprint](render.yaml): in the Render dashboard choose
+**New + → Blueprint → select this repository**. It builds with `npm install && npm run build` and
+starts with `node server.mjs`, health-checked on `/api/health`. The free plan sleeps after ~15
+minutes of inactivity (first request after a sleep takes ~30–60s).
+
+### Any Node platform (Railway, Fly.io, a VPS, …)
+
+```bash
+npm install
+npm run build            # frontend bundle → dist/
+NODE_ENV=production node server.mjs
+```
+
+- Node.js 20.12+ (22+ recommended); `PORT` is read from the environment automatically.
+- Set `NODE_ENV=production` so the server serves the built frontend from `dist/`.
+- The database lives at `AGRIPULSE_DB_PATH` (default `.data/agripulse.sqlite`). It is a local
+  file: data survives restarts but resets when the disk/instance is recreated. Back it up or use a
+  managed database for real deployments (see below).
+- Optional server settings: `WEATHER_PROVIDER=weatherapi` + `WEATHER_API_KEY`, `ALLOW_DEMO_SESSIONS`,
+  `DEVICE_ONLINE_WINDOW_SECONDS`, `WEB_ORIGINS`.
+- **Demo accounts:** the one-click "Open Farmer Demo" / "Open Seller Demo" launchers on the login
+  page are a labelled development workspace and are off by default in production builds. Showing
+  them on a deployed demo/staging site needs **both** gates open:
+  1. `VITE_DEMO_MODE=true` at **build time** (frontend: renders the launchers), e.g.
+     `VITE_DEMO_MODE=true npm run build`
+  2. `ALLOW_DEMO_SESSIONS=true` at **runtime** (server: serves the demo sessions)
+  
+  The shipped `render.yaml` blueprint sets both.
+
+### What will NOT work: static-only hosts
+
+- **Vercel / Netlify / GitHub Pages (static):** `vercel.json` rewrites every route to
+  `index.html`, so only the *public marketing pages* render. Every `/api/*` call receives HTML
+  instead of JSON — the farmer/seller portals, login, devices and live monitoring do not function.
+  A file-backed SQLite database is also not durable on serverless runtimes. Making the full app
+  run on such a host requires re-architecting the API as serverless functions with a managed
+  database; that has not been done.
+- If a static deploy shows a **blank white page**, the host is serving the wrong directory
+  (the source `index.html` instead of `dist/`) or the wrong asset base path (GitHub Pages needs
+  `base: '/<repo>/'` in `vite.config.ts`).
 
 ## Before any production deployment
 

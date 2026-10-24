@@ -1,0 +1,27 @@
+# Render Blueprint — one-click deploy of AGRIPULSE as a single web service.
+#
+# Deploy from the Render dashboard: "New +" → "Blueprint" → pick this repository.
+# Or manually: Build command  → npm install && VITE_DEMO_MODE=true npm run build
+#              Start command  → node server.mjs
+#              (Render injects PORT automatically; NODE_ENV is set below.)
+# VITE_DEMO_MODE=true is a BUILD-TIME flag: it bakes the demo launchers into the frontend.
+#
+# Note: the free plan sleeps the service after ~15 minutes of inactivity;
+# the first request after a sleep takes ~30-60s to wake up.
+services:
+  - type: web
+    name: agripulse
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && VITE_DEMO_MODE=true npm run build
+    startCommand: node server.mjs
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Show the one-click "Open Farmer/Seller Demo" launchers on the login page.
+      # Remove this (or set false) to hide the labelled demo workspace in production.
+      - key: ALLOW_DEMO_SESSIONS
+        value: "true"

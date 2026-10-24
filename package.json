@@ -5,13 +5,13 @@
   "description": "AGRIPULSE — intelligent farm digital twin and early crop-stress detection platform (farmer and seller portals)",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "node server.mjs",
     "dev:api": "node --watch server/index.mjs",
     "dev:web": "vite --host 0.0.0.0 --port 3000",
-    "start": "node server.ts",
+    "start": "node server.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
-    "lint": "tsc --noEmit && node --check server/index.mjs && node --check server/app.mjs && node --check server/auth-service.mjs && node --check server/device-service.mjs && node --check server/security.mjs && node --check server/schemas.mjs && node --check server/workspace.mjs && node --check server/weather-service.mjs",
+    "lint": "tsc --noEmit && node --check server.mjs && node --check server/index.mjs && node --check server/app.mjs && node --check server/auth-service.mjs && node --check server/device-service.mjs && node --check server/security.mjs && node --check server/schemas.mjs && node --check server/workspace.mjs && node --check server/weather-service.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --test server/test/*.test.mjs",
     "test:render": "node scripts/buildSmoke.mjs && node .smoke/ssrSmoke.cjs",
@@ -48,7 +48,7 @@
     "vite": "^7.3.7"
   },
   "engines": {
-    "node": ">=22.22.0"
+    "node": ">=20.12.0"
   },
   "overrides": {
     "postcss-selector-parser": "^7.1.6"

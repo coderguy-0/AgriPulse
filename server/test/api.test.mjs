@@ -357,32 +357,39 @@ describe('AGRIPULSE authenticated API', () => {
     assert.equal(legacySensor.response.status, 400);
   });
 
-  it('keeps demo access development-only', async () => {
+  it('keeps demo access off by default in production unless explicitly enabled', async () => {
     const demo = await api('/api/dev/demo-session', { method: 'POST', body: { portalType: 'farmer' } });
     assert.equal(demo.response.status, 200);
     assert.equal(demo.data.session.isDemo, true);
 
-    const productionDb = openDatabase(':memory:');
-    const productionServer = createServer(createApp({
-      db: productionDb,
-      environment: { NODE_ENV: 'production', ALLOW_DEMO_SESSIONS: 'true', WEB_ORIGINS: 'https://app.example.test' },
-      logger,
-    }));
-    await new Promise((resolve, reject) => {
-      productionServer.once('error', reject);
-      productionServer.listen(0, '127.0.0.1', resolve);
-    });
-    const { port } = productionServer.address();
-    try {
-      const result = await fetch(`http://127.0.0.1:${port}/api/dev/demo-session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ portalType: 'farmer' }),
+    // Production is demo-off by default; an explicit ALLOW_DEMO_SESSIONS=true opts a
+    // production deployment in (labelled demo/staging sites); explicit false always wins.
+    const scenarios = [
+      [{ NODE_ENV: 'production', WEB_ORIGINS: 'https://app.example.test' }, 404],
+      [{ NODE_ENV: 'production', ALLOW_DEMO_SESSIONS: 'true', WEB_ORIGINS: 'https://app.example.test' }, 200],
+      [{ NODE_ENV: 'production', ALLOW_DEMO_SESSIONS: 'false', WEB_ORIGINS: 'https://app.example.test' }, 404],
+      [{ NODE_ENV: 'development', ALLOW_DEMO_SESSIONS: 'false' }, 404],
+    ];
+
+    for (const [environment, expected] of scenarios) {
+      const scenarioDb = openDatabase(':memory:');
+      const scenarioServer = createServer(createApp({ db: scenarioDb, environment, logger }));
+      await new Promise((resolve, reject) => {
+        scenarioServer.once('error', reject);
+        scenarioServer.listen(0, '127.0.0.1', resolve);
       });
-      assert.equal(result.status, 404);
-    } finally {
-      await new Promise((resolve) => productionServer.close(resolve));
-      productionDb.close();
+      const { port } = scenarioServer.address();
+      try {
+        const result = await fetch(`http://127.0.0.1:${port}/api/dev/demo-session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ portalType: 'farmer' }),
+        });
+        assert.equal(result.status, expected);
+      } finally {
+        await new Promise((resolve) => scenarioServer.close(resolve));
+        scenarioDb.close();
+      }
     }
   });
 });
