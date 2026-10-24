@@ -139,6 +139,7 @@ features. `.data/`, `dist/` and `.smoke/` are excluded from Git.
 |---|---|
 | `VITE_WEATHER_API_URL` | Frontend endpoint for a weather service; with no value the app shows a **clearly labelled sample forecast** |
 | `VITE_AI_BACKEND_ENDPOINT` | Optional endpoint for richer assistant answers; unused values keep the local rule engine |
+| `VITE_DEMO_MODE` | Build-time flag (`VITE_DEMO_MODE=true npm run build`): renders the labelled demo launchers on the login page in a production build. Always on in development |
 | `ALLOW_DEMO_SESSIONS` | Controls the labelled development demo workspace: on by default in development, off by default under `NODE_ENV=production`; set `true` to enable it on a production deployment (demo/staging sites) or `false` to disable it anywhere |
 
 Never place provider credentials in a `VITE_*` variable: those values ship to the browser. Weather,
@@ -188,9 +189,13 @@ NODE_ENV=production node server.mjs
 - Optional server settings: `WEATHER_PROVIDER=weatherapi` + `WEATHER_API_KEY`, `ALLOW_DEMO_SESSIONS`,
   `DEVICE_ONLINE_WINDOW_SECONDS`, `WEB_ORIGINS`.
 - **Demo accounts:** the one-click "Open Farmer Demo" / "Open Seller Demo" launchers on the login
-  page are a labelled development workspace and are off by default when `NODE_ENV=production`. To
-  show them on a deployed demo/staging site, set `ALLOW_DEMO_SESSIONS=true` (the shipped
-  `render.yaml` blueprint already does this).
+  page are a labelled development workspace and are off by default in production builds. Showing
+  them on a deployed demo/staging site needs **both** gates open:
+  1. `VITE_DEMO_MODE=true` at **build time** (frontend: renders the launchers), e.g.
+     `VITE_DEMO_MODE=true npm run build`
+  2. `ALLOW_DEMO_SESSIONS=true` at **runtime** (server: serves the demo sessions)
+  
+  The shipped `render.yaml` blueprint sets both.
 
 ### What will NOT work: static-only hosts
 

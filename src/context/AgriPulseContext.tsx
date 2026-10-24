@@ -42,7 +42,10 @@ import { SEED_GOVERNMENT_SCHEMES, SEED_NEWS_ARTICLES } from '../data/seedNewsAnd
 import { VALID_DEMO_PROMO_CODES } from '../data/seedProducts';
 import { authApi, deviceApi, workspaceApi } from '../services/apiClient';
 
-export const DEMO_MODE_ENABLED = import.meta.env.DEV;
+// The labelled demo launchers are always available in the dev server; in production builds they
+// are only shown when VITE_DEMO_MODE=true is set at build time (e.g. `VITE_DEMO_MODE=true npm run
+// build`), mirroring the server's runtime ALLOW_DEMO_SESSIONS opt-in.
+export const DEMO_MODE_ENABLED = import.meta.env.DEV || import.meta.env.VITE_DEMO_MODE === 'true';
 export const DEMO_FARMER_EMAIL = 'farmer.demo@agripulse.in';
 export const DEMO_SELLER_EMAIL = 'seller.demo@agripulse.in';
 export const DEMO_ACCOUNT_EMAIL = DEMO_FARMER_EMAIL;
