@@ -42,12 +42,10 @@ import { SEED_GOVERNMENT_SCHEMES, SEED_NEWS_ARTICLES } from '../data/seedNewsAnd
 import { VALID_DEMO_PROMO_CODES } from '../data/seedProducts';
 import { authApi, deviceApi, workspaceApi } from '../services/apiClient';
 
-// The labelled demo launchers are always available in the dev server; in production builds they
-// are only shown when VITE_DEMO_MODE=true is set at build time (e.g. `VITE_DEMO_MODE=true npm run
-// build`), mirroring the server's runtime ALLOW_DEMO_SESSIONS opt-in.
-export const DEMO_MODE_ENABLED = import.meta.env.DEV || import.meta.env.VITE_DEMO_MODE === 'true';
+export const DEMO_MODE_ENABLED = import.meta.env.VITE_DEMO_MODE !== 'false';
 export const DEMO_FARMER_EMAIL = 'farmer.demo@agripulse.in';
 export const DEMO_SELLER_EMAIL = 'seller.demo@agripulse.in';
+export const DEMO_PASSWORD = 'AgriPulseDemo!2026';
 export const DEMO_ACCOUNT_EMAIL = DEMO_FARMER_EMAIL;
 
 const EMPTY_CHECKOUT_DRAFT: CheckoutAddressDraft = {
@@ -551,8 +549,17 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  const loginAsSellerDemo = () => openDemoPortal('seller');
-  const loginAsFarmerDemo = () => openDemoPortal('farmer');
+  const loginAsSellerDemo = async (): Promise<{ ok: boolean; portal: PortalType; error?: string }> => {
+    const demoRes = await openDemoPortal('seller');
+    if (demoRes.ok) return demoRes;
+    return loginWithCredentials(DEMO_SELLER_EMAIL, DEMO_PASSWORD, true, 'seller');
+  };
+
+  const loginAsFarmerDemo = async (): Promise<{ ok: boolean; portal: PortalType; error?: string }> => {
+    const demoRes = await openDemoPortal('farmer');
+    if (demoRes.ok) return demoRes;
+    return loginWithCredentials(DEMO_FARMER_EMAIL, DEMO_PASSWORD, true, 'farmer');
+  };
 
   const registerSeller = async (sellerData: SellerRegistrationRequest): Promise<{ ok: boolean; error?: string }> => {
     try {

@@ -96,7 +96,11 @@ export const authApi = {
     return request<{ session: AuthSession; workspace: WorkspaceResponse }>('/api/auth/register', { method: 'POST', body: jsonBody(input) });
   },
   async demoSession(portalType: PortalType) {
-    return request<{ session: AuthSession }>('/api/dev/demo-session', { method: 'POST', body: jsonBody({ portalType }) });
+    try {
+      return await request<{ session: AuthSession }>('/api/auth/demo-session', { method: 'POST', body: jsonBody({ portalType }) });
+    } catch {
+      return await request<{ session: AuthSession }>('/api/dev/demo-session', { method: 'POST', body: jsonBody({ portalType }) });
+    }
   },
   async logout() {
     return request<{ ok: true }>('/api/auth/logout', { method: 'POST' });

@@ -13,8 +13,13 @@ if (existsSync('.env')) {
   }
 }
 
-const port = Number(process.env.PORT || 3000);
-const host = process.env.HOST || '0.0.0.0';
+const portArgIndex = process.argv.indexOf('--port');
+const cliPort = portArgIndex !== -1 && process.argv[portArgIndex + 1] ? Number(process.argv[portArgIndex + 1]) : null;
+const hostArgIndex = process.argv.indexOf('--host');
+const cliHost = hostArgIndex !== -1 && process.argv[hostArgIndex + 1] ? process.argv[hostArgIndex + 1] : null;
+
+const port = cliPort || Number(process.env.PORT || 3000);
+const host = cliHost || process.env.HOST || '0.0.0.0';
 
 const db = openDatabase();
 const apiApp = createApp({ db });
@@ -41,7 +46,7 @@ if (process.env.NODE_ENV === 'production') {
   // In development, mount Vite dev server in middleware mode
   const { createServer: createViteServer } = await import('vite');
   const vite = await createViteServer({
-    server: { middlewareMode: true, host: '0.0.0.0' },
+    server: { middlewareMode: true, host: '0.0.0.0', hmr: false },
     appType: 'spa',
   });
   app.use(vite.middlewares);

@@ -1,0 +1,644 @@
+# MASTER PROMPT: COMPLETE WEBSITE DEPLOYMENT, DEMO ACCOUNT, FARMER WORKSPACE & SELLER WORKSPACE REPAIR
+
+## ROLE AND RESPONSIBILITY
+
+Act as a senior full-stack software engineer, DevOps engineer, cloud deployment specialist, authentication and authorization architect, database engineer, UI/UX engineer, and quality-assurance expert.
+
+Your responsibility is to perform a complete technical audit, identify the actual root causes of the deployment failures, implement the necessary code fixes, and verify the complete website workflow from initial page load to successful Farmer and Seller workspace operation.
+
+**Do not merely provide suggestions, sample code, or a report. Inspect the actual project repository, make the required changes, run the available tests and build commands, and prepare a verified, deployable solution.**
+
+Do not rebuild the entire website unnecessarily. Preserve the existing design, branding, features, project structure, agriculture-related functionality, and working components unless a change is necessary to correct a defect.
+
+---
+
+## 1. PRIMARY PROBLEMS THAT MUST BE RESOLVED
+
+The website currently has the following critical problems:
+
+1. The website is failing to deploy successfully or does not work correctly after deployment.
+2. Farmer demo account details are not visible or accessible after deployment.
+3. Seller demo account details are not visible or accessible after deployment.
+4. The Farmer workspace does not load correctly or its functionality is broken.
+5. The Seller workspace does not load correctly or its functionality is broken.
+6. Authentication, role verification, workspace routing, persistence, or backend integration may be failing.
+7. Some features might work locally but fail in the production deployment.
+8. Environment variables, API URLs, database configuration, serverless function settings, build scripts, or hosting configuration may be incomplete or incorrect.
+
+These are symptoms, not confirmed root causes. Inspect the repository and deployment configuration before determining the actual cause.
+
+**Priority:** First restore a stable deployment. Then repair demo account access, authentication, role-based routing, Farmer workspace, Seller workspace, data persistence, and all connected features.
+
+---
+
+## 2. BEGIN WITH A COMPLETE REPOSITORY AUDIT
+
+Before modifying the code, inspect the entire project and identify:
+
+- Frontend framework and version.
+- Backend framework and entry point.
+- Package manager and lockfile.
+- Build scripts, start scripts, and development scripts.
+- Repository directory structure.
+- Hosting provider and deployment target.
+- Existing deployment configuration files.
+- API routes and backend endpoints.
+- Authentication and authorization implementation.
+- Login, registration, and demo account logic.
+- Farmer and Seller role definitions.
+- Dashboard and workspace route configuration.
+- Database provider, schema, migrations, and connection settings.
+- Environment variables and example environment files.
+- Client-side routing and browser refresh behavior.
+- Asset imports, public paths, and case-sensitive file references.
+- Existing tests, linting, type checking, and build tools.
+- Recent or identifiable incomplete implementations, missing imports, broken references, and temporary placeholders.
+
+Inspect relevant files such as `package.json`, lockfiles, router configuration, authentication utilities, API clients, backend entry points, hosting configuration, build configuration, environment examples, and workspace components.
+
+Trace the entire application flow:
+
+**Application startup → landing page → demo account visibility → login → credential verification → session creation → role verification → workspace navigation → workspace initialization → API requests → data persistence.**
+
+Record every broken link in this chain and fix the underlying problem instead of masking the error.
+
+Do not invent the hosting provider, framework, backend, or database. Determine them from the actual repository.
+
+---
+
+## 3. FIX THE DEPLOYMENT FAILURE FIRST
+
+Investigate and resolve every confirmed deployment blocker.
+
+### A. Build and dependency configuration
+
+- Verify that the package manifest is valid.
+- Ensure the correct build and start scripts exist for the detected framework and host.
+- Resolve missing, incompatible, or incorrectly imported dependencies.
+- Check dependency lockfile consistency.
+- Repair TypeScript, JavaScript, bundler, compilation, and module-resolution errors.
+- Resolve broken asset paths, incorrect file capitalization, missing configuration files, and unsupported Node.js or runtime versions.
+- Remove build steps that reference nonexistent files or commands.
+- Ensure generated output matches the hosting provider's required output directory.
+- Do not hide compilation errors with unsafe configuration changes.
+
+### B. Hosting configuration
+
+Inspect the actual deployment platform and configure it correctly.
+
+Depending on the detected platform, inspect relevant files such as:
+
+- `netlify.toml`
+- `vercel.json`
+- `render.yaml`
+- Dockerfiles and Compose files
+- Static-host redirects and rewrite rules
+- Serverless function configuration
+- Backend start commands and health-check settings
+
+These are examples, not files that must all be created.
+
+Configure frontend routes so refreshing or directly opening the Farmer or Seller workspace does not incorrectly return a 404. Preserve real API routes and ensure they are not accidentally rewritten to the frontend HTML entry point.
+
+If the project includes a backend, verify that the host actually deploys and starts it. A successful frontend build alone does not prove that the application works.
+
+### C. Production environment
+
+- Identify every required environment variable.
+- Document its purpose and expected format in an example environment file.
+- Configure production API URLs and backend endpoints correctly.
+- Remove localhost-only URLs from production execution paths.
+- Verify CORS, HTTPS, cookies, session configuration, proxy settings, and secure request handling where applicable.
+- Ensure frontend and backend services communicate using the correct production endpoints.
+- Never commit real secrets, private keys, production credentials, or database passwords.
+- Never embed privileged backend secrets inside client-side code.
+- Handle missing environment configuration with clear, actionable errors rather than an unexplained blank screen.
+
+### D. Production error diagnosis
+
+Inspect available build logs, runtime logs, browser console errors, network failures, and backend exceptions.
+
+Classify errors into:
+- Build-time failures.
+- Deployment configuration failures.
+- Runtime startup failures.
+- API connectivity failures.
+- Authentication failures.
+- Database failures.
+- Workspace rendering failures.
+
+Fix the actual causes. Do not mark a problem resolved merely because an error message has been hidden.
+
+---
+
+## 4. RESTORE FARMER AND SELLER DEMO ACCOUNTS
+
+The Farmer and Seller demo accounts must be consistently accessible from the deployed website.
+
+### A. Demo account visibility
+
+Inspect the existing login interface and restore the intended demo account section.
+
+Both account types must be clearly identifiable:
+
+- Farmer Demo Account
+- Seller Demo Account
+
+For each account, display the correct demo email or username, a demo password when applicable, and an easy-to-use action such as **Use Farmer Demo** or **Use Seller Demo**.
+
+Use the project's existing demo credentials if they are intentionally defined and safe for public demonstration. Do not invent credentials that have not been seeded or configured.
+
+If the project has no working demo credentials, implement a safe, documented demo-account setup appropriate to its existing authentication architecture.
+
+Never expose production accounts, personal user information, password hashes, session tokens, API secrets, or administrative credentials through demo UI or source maps.
+
+### B. Demo account initialization
+
+Investigate whether the demo accounts are currently:
+
+- Hardcoded only in the development environment.
+- Created manually in a local database.
+- Seeded during local startup but not production deployment.
+- Missing from the production database.
+- Read from a file that is not included in the build.
+- Dependent on development-only environment variables.
+- Rejected because of role or account-status mismatches.
+
+Choose and implement the correct initialization mechanism for the existing application.
+
+Requirements:
+
+1. Demo accounts must be created reproducibly in the intended environment.
+2. Database migrations and seed scripts must be documented and executable.
+3. Repeated seeding must not create duplicate demo accounts.
+4. Existing unrelated users and data must not be overwritten.
+5. Each demo account must have the correct role and active status.
+6. Passwords must use the authentication system's approved password-hashing method.
+7. Public demo access must not grant administrative privileges.
+8. Demo access must not expose real user data.
+9. Seed failures must produce understandable diagnostic errors.
+10. Demo account availability must not depend on opening a development-only route.
+
+If the system uses a managed authentication provider, integrate demo users through that provider's supported server-side mechanism rather than introducing an unrelated custom authentication system.
+
+If the application uses a database, verify that production queries use the intended production database, not a local or in-memory database that disappears on restart.
+
+**Important:** Frontend demo account buttons must not simply bypass authentication by inserting a role into browser storage. The backend or trusted authentication provider must validate the identity and role.
+
+---
+
+## 5. REPAIR THE COMPLETE AUTHENTICATION FLOW
+
+Audit and repair login, logout, session persistence, account status validation, and role-based access.
+
+### Required login workflow
+
+1. A visitor opens the website.
+2. The login page displays the intended Farmer and Seller demo options.
+3. The visitor selects the Farmer demo.
+4. The application authenticates the Farmer using the established authentication system.
+5. The server or trusted identity provider validates the user's identity and status.
+6. The application confirms that the authenticated account has the Farmer role.
+7. The Farmer is redirected to the correct Farmer workspace.
+8. The same process works independently for the Seller role.
+9. Reloading the page preserves a valid session according to the application's security model.
+10. Logging out invalidates or clears the appropriate session state.
+11. Attempting to access the other role's restricted workspace is denied.
+12. Expired, invalid, disabled, and unauthorized sessions are handled gracefully.
+
+Check for:
+
+- Incorrect credential field names.
+- Password-hashing or verification mismatches.
+- Role names that differ between the database and frontend.
+- Missing user records.
+- Incorrect API request payloads.
+- Broken authentication endpoints.
+- Token expiration and refresh problems.
+- Cookie path, domain, SameSite, Secure, and credential settings where applicable.
+- Incorrect redirect logic.
+- Race conditions between session restoration and workspace rendering.
+- Authentication requests that fail silently.
+- Development-only authentication shortcuts.
+- Stale or inconsistent role data.
+- Incorrect handling of failed API responses.
+
+Do not trust a role received only from the client. Enforce authorization on protected backend endpoints.
+
+Do not store passwords in local storage or session storage. Avoid persisting long-lived authentication tokens in browser storage when the architecture can use secure, HTTP-only cookies.
+
+---
+
+## 6. REPAIR THE FARMER WORKSPACE END TO END
+
+The Farmer workspace must load reliably and provide a functional interface that matches the existing website's agriculture-focused purpose.
+
+### A. Workspace startup
+
+Verify that:
+
+- The Farmer account can enter the workspace after authentication.
+- The workspace route is valid in development and production.
+- Direct navigation and browser refresh work.
+- The correct authenticated user is loaded before user-specific content appears.
+- The Farmer role is checked before protected content is shown.
+- The layout does not remain stuck on a loading screen.
+- Missing or unavailable data produces a helpful message and retry option.
+- API failures do not crash the entire application.
+- The workspace does not redirect continuously between the login page and dashboard.
+- Browser console errors and failed requests are resolved.
+
+### B. Feature inventory
+
+First inspect the actual Farmer workspace and preserve its existing feature requirements. Test and repair the implemented modules, which may include:
+
+- Farmer dashboard and overview.
+- Farmer profile and farm details.
+- Farm or field management.
+- Crop records and crop lifecycle tracking.
+- Sowing, irrigation, fertilizer, and harvesting records.
+- Soil observations and agricultural sensor readings, if implemented.
+- Crop health, pest, disease, and weather information, if implemented.
+- Inventory, supplies, and harvest records.
+- Market prices and buyer or Seller connections, if implemented.
+- Orders, sales, deliveries, and transaction history, where supported.
+- Notifications and alerts.
+- Reports and analytics.
+- Settings, account management, and logout.
+
+These examples do not authorize inventing features that the original product does not contain. Base the final implementation on the repository's existing design and purpose.
+
+### C. Functional behavior
+
+For each implemented feature:
+
+1. Inspect the interface.
+2. Identify its intended action.
+3. Verify its frontend event handlers.
+4. Verify associated API endpoints.
+5. Verify request and response schemas.
+6. Verify database reads and writes.
+7. Implement missing error and loading states.
+8. Verify successful and unsuccessful operations.
+9. Refresh the page and confirm that saved changes persist.
+10. Confirm that the operation belongs to the authenticated Farmer.
+
+Buttons must perform their intended actions. Forms must validate inputs, display useful errors, and prevent accidental duplicate submissions. Do not leave important controls as decorative elements.
+
+### D. Farmer data integrity
+
+- Associate farm records with the correct authenticated Farmer.
+- Enforce ownership checks on the backend.
+- Prevent a Farmer from changing another Farmer's data by editing an ID in an API request.
+- Ensure new records use the trusted authenticated user's ID.
+- Use the existing database and persistence architecture.
+- Apply safe validation and appropriate transaction handling.
+- Prevent duplicate records when the same request is retried.
+- Never replace real production data with sample data to make a dashboard appear functional.
+
+---
+
+## 7. REPAIR THE SELLER WORKSPACE END TO END
+
+Apply an equally thorough audit to the Seller workspace.
+
+### A. Workspace startup
+
+Verify Seller login, route configuration, role authorization, session restoration, API connectivity, loading states, error handling, direct navigation, and browser refresh.
+
+The Seller workspace must operate independently from the Farmer workspace while supporting the intended business workflows.
+
+### B. Feature inventory
+
+Inspect the current implementation and repair its existing modules, which may include:
+
+- Seller dashboard.
+- Seller profile and business information.
+- Product or agricultural produce listings.
+- Produce categories and descriptions.
+- Quantity, unit, pricing, and availability.
+- Inventory management.
+- Listing creation, editing, publishing, and removal.
+- Incoming orders and order status.
+- Buyer requests and communication.
+- Packaging, delivery, and fulfillment, where implemented.
+- Sales, revenue, and transaction history.
+- Notifications and reporting.
+- Settings and logout.
+
+Do not invent integrations or claim that a payment gateway, messaging service, delivery system, or external marketplace works unless it has been configured and verified.
+
+### C. Product and listing operations
+
+Verify the complete product lifecycle:
+
+1. Seller opens the listing page.
+2. Seller creates a listing using validated inputs.
+3. The listing is saved to the correct production database.
+4. The listing appears in the Seller's inventory.
+5. The Seller can edit permitted information.
+6. The Seller can update the available quantity or listing status.
+7. Invalid quantities, prices, and missing required fields are rejected.
+8. Deletion follows the application's intended confirmation and business rules.
+9. Changes remain available after a page reload.
+10. Listings cannot be modified by another Seller without authorization.
+
+### D. Orders and transactions
+
+When supported by the project, verify order creation, ownership, status transitions, inventory adjustments, and transaction records.
+
+Use consistent database transactions for operations that must succeed or fail together. Protect against overselling, duplicate submissions, inconsistent quantities, and unauthorized order modifications.
+
+Never invent completed purchases or successful payments during testing. Payment processing must be tested using the payment provider's approved sandbox where applicable.
+
+---
+
+## 8. CORRECT API, BACKEND AND DATABASE INTEGRATION
+
+Audit every API used by authentication, Farmer workspace, and Seller workspace.
+
+For each relevant endpoint, verify:
+
+- HTTP method and URL.
+- Expected authentication.
+- Required role and permissions.
+- Input validation.
+- Expected request payload.
+- Response structure and status codes.
+- Database operations.
+- Error handling.
+- CORS requirements.
+- Correct production base URL.
+- Timeout and network error handling.
+- Logging without exposing sensitive information.
+
+Look for common defects including:
+
+- Requests sent to `localhost` in production.
+- Incorrect API path prefixes.
+- Missing environment variables.
+- API routes rewritten to the frontend application.
+- Frontend and backend using different field names.
+- Incorrect JSON parsing.
+- Non-JSON error responses being treated as successful data.
+- Inconsistent HTTP status handling.
+- Missing authorization headers or cookies.
+- Incompatible database schemas or migrations.
+- Missing production database tables or seed data.
+- In-memory state used for persistent business records.
+- Database queries that fail because of case-sensitive identifiers.
+- Cross-origin requests missing required configuration.
+- Unhandled rejected promises.
+
+Use the existing backend and data services unless there is a demonstrable architectural reason to change them.
+
+If a backend is absent but the frontend depends on unavailable API endpoints, determine the intended architecture and clearly implement only the appropriate supported solution. Do not create fake successful API responses as a substitute for persistent storage.
+
+---
+
+## 9. KEEP FARMER AND SELLER DATA SECURELY SEPARATED
+
+Implement and verify proper role-based authorization and ownership controls.
+
+| Resource or action | Required rule |
+|---|---|
+| Farmer workspace | Authenticated Farmer only |
+| Seller workspace | Authenticated Seller only |
+| Farmer farm records | Accessible only to the authorized owner and explicitly permitted roles |
+| Seller listings | Editable only by the authorized Seller or permitted administrators |
+| Seller orders | Restricted to authorized participants and permitted roles |
+| Demo accounts | Limited to the intended demo capabilities |
+| Production administration | Never exposed through public demo access |
+
+The table defines minimum access boundaries, not a replacement for the project's complete authorization policy.
+
+Enforce permission checks on the backend for every protected operation. Frontend route guards improve usability but are not a security boundary by themselves.
+
+Test role mismatch, direct URL access, manipulated user identifiers, expired sessions, missing authentication, and attempts to access another user's records.
+
+Do not expose private data in public API responses, client bundles, console logs, or error pages.
+
+---
+
+## 10. RESTORE A PROFESSIONAL AND RELIABLE USER EXPERIENCE
+
+Preserve the existing website's visual identity and agriculture-related theme.
+
+Repair:
+
+- Blank screens and infinite loading indicators.
+- Broken navigation and workspace links.
+- Unresponsive buttons and forms.
+- Missing icons and images.
+- Layout overflow on mobile and desktop.
+- Unclear loading, success, and error messages.
+- Broken empty states.
+- Misleading demo account instructions.
+- Unexpected logout or repeated login prompts.
+- Workspace rendering errors caused by missing data.
+- Accessibility problems with labels, keyboard navigation, and focus.
+
+Use consistent page layouts, spacing, typography, colors, responsive grids, and reusable components already established in the application.
+
+Provide clear feedback for login failure, unavailable services, missing permissions, invalid input, saved changes, and session expiration.
+
+Do not show success notifications until the corresponding operation has actually succeeded.
+
+Do not hide real operational errors behind generic success messages.
+
+---
+
+## 11. AUTOMATED TESTING AND END-TO-END VERIFICATION
+
+Create or repair a practical test suite using the tools and test framework already present in the project. Add compatible testing dependencies only where necessary.
+
+### A. Deployment validation
+
+- Clean dependency installation using the appropriate package manager.
+- Production build.
+- Type checking, where applicable.
+- Linting, where configured.
+- Unit tests.
+- Integration tests.
+- Required database migrations.
+- Demo seed execution.
+- Hosting configuration validation.
+- Runtime startup and health check, where supported.
+
+### B. Authentication tests
+
+Test at minimum:
+
+- Farmer demo option is rendered.
+- Seller demo option is rendered.
+- Valid Farmer demo login works.
+- Valid Seller demo login works.
+- Invalid credentials are rejected.
+- Correct roles are assigned.
+- Farmer cannot access the protected Seller workspace.
+- Seller cannot access the protected Farmer workspace.
+- A missing or expired session is handled correctly.
+- Logout works.
+- Session restoration works after reload.
+
+### C. Farmer workspace tests
+
+Verify:
+
+- Dashboard renders.
+- Required APIs return the expected data.
+- Existing farm records load correctly.
+- A supported record can be created or updated.
+- Validation errors display correctly.
+- Backend failures produce useful error handling.
+- Changes persist after reload.
+- A different Farmer cannot access the test user's private records.
+
+### D. Seller workspace tests
+
+Verify:
+
+- Dashboard renders.
+- Seller inventory loads correctly.
+- A supported listing can be created and updated.
+- Invalid listings are rejected.
+- Changes persist after reload.
+- Relevant order workflows operate correctly when implemented.
+- Another Seller cannot modify the test user's listings or restricted transactions.
+
+### E. Production-like testing
+
+Run the application using its production build and the closest available production-equivalent configuration.
+
+Verify direct loading of the login page and both workspace routes. Inspect browser network failures, console errors, server logs, authentication responses, and failed API calls.
+
+Where deployment credentials or remote infrastructure are unavailable, clearly distinguish locally verified behavior from unverified live-host behavior.
+
+Do not claim that the real hosted website has been repaired unless the deployment actually succeeded and its behavior was checked.
+
+---
+
+## 12. DIAGNOSTICS AND ERROR REPORTING
+
+Implement useful, safe diagnostics for:
+
+- Application startup.
+- Authentication initialization.
+- Demo account seeding.
+- Database connection.
+- API request failures.
+- Farmer workspace initialization.
+- Seller workspace initialization.
+- Deployment health checks.
+
+Use structured server logging where appropriate. Include enough contextual information to diagnose failures without logging passwords, authorization tokens, private personal data, or secrets.
+
+Provide human-readable error states to visitors and detailed, safe technical logs for developers.
+
+Do not silently swallow errors, leave unexplained `TODO` placeholders in critical flows, or suppress warnings and errors to make the application appear healthy.
+
+---
+
+## 13. IMPLEMENTATION STRATEGY
+
+Follow this sequence and keep the application working between changes wherever practical.
+
+**Phase 1 — Discover:** Inspect the repository, architecture, deployment platform, configuration, authentication, and both workspaces.
+
+**Phase 2 — Diagnose:** Identify the confirmed root causes with file paths, relevant log messages, and reproducible failure conditions.
+
+**Phase 3 — Fix deployment:** Resolve build blockers, hosting configuration, production environment requirements, and frontend/backend connectivity.
+
+**Phase 4 — Restore demo access:** Correct account seeding, credential verification, role assignments, and demo account UI.
+
+**Phase 5 — Repair authentication:** Correct sessions, authorization checks, routing, and access protection.
+
+**Phase 6 — Repair Farmer workspace:** Fix rendering, API integration, implemented functionality, database persistence, and permissions.
+
+**Phase 7 — Repair Seller workspace:** Fix rendering, listings, inventory, applicable order workflows, persistence, and permissions.
+
+**Phase 8 — Test integrations:** Verify role separation, cross-user data isolation, validation, error states, and production configuration.
+
+**Phase 9 — Validate release:** Run the production build and available automated tests. Resolve all blocking errors and relevant regressions.
+
+**Phase 10 — Prepare deployment:** Provide exact deployment instructions, environment variable names, required migrations, required seed commands, and any provider-specific setup that still requires user action.
+
+Do not make destructive schema changes, delete real user information, reset production databases, or overwrite production configuration without a demonstrated need and an appropriate backup or migration plan.
+
+---
+
+## 14. DEFINITION OF DONE
+
+The work is complete only when the following checklist is satisfied or each unavailable item is explicitly documented as unverified.
+
+- [ ] The repository's real deployment blocker has been identified.
+- [ ] The production build completes successfully.
+- [ ] Hosting configuration matches the detected platform.
+- [ ] Production API and backend URLs are correct.
+- [ ] Required environment variables are documented.
+- [ ] Required database migrations can run successfully.
+- [ ] Farmer demo account setup is reproducible and idempotent.
+- [ ] Seller demo account setup is reproducible and idempotent.
+- [ ] Both demo options appear on the intended login screen.
+- [ ] Farmer demo authentication works.
+- [ ] Seller demo authentication works.
+- [ ] Correct role-based redirects work.
+- [ ] Protected workspace routes behave correctly on refresh.
+- [ ] Farmer workspace loads and its implemented features work.
+- [ ] Seller workspace loads and its implemented features work.
+- [ ] Supported changes persist in the intended database.
+- [ ] Cross-role and cross-user access restrictions are tested.
+- [ ] No critical controls are left broken or misleading.
+- [ ] Production build, relevant tests, and type checks pass where configured.
+- [ ] No known critical runtime or authentication errors remain.
+- [ ] All unverified external integrations and deployment prerequisites are documented.
+- [ ] The final deployment instructions can be followed without guessing.
+
+---
+
+## 15. FINAL REPORT REQUIRED
+
+After performing the actual repository work, provide a concise but technically complete report containing:
+
+### A. Root causes
+The exact causes of deployment failure, missing demo accounts, and broken workspaces, supported by inspected files, logs, or test results.
+
+### B. Files changed
+List each important changed file and explain why it was modified.
+
+### C. Deployment repair
+Describe the confirmed build, hosting, environment, routing, API, and database fixes.
+
+### D. Demo credentials and setup
+Explain how the Farmer and Seller demo accounts are initialized and how the provided demo login interface works. Present only credentials intentionally configured for public demonstration, and never expose production secrets.
+
+### E. Verification results
+Provide an honest status for the production build, automated tests, Farmer login, Seller login, direct workspace routing, persistence, role isolation, and live deployment.
+
+Use three outcomes: **PASS**, **FAIL**, and **NOT VERIFIED**. Do not label a test as passing unless it was actually executed and its result inspected.
+
+### F. Remaining blockers
+List only the issues that genuinely require additional credentials, provider access, external configuration, or a decision that cannot safely be made from the repository.
+
+### G. Exact deployment procedure
+Provide the final build command, database migration or seed commands where relevant, required environment variables, and the exact steps to deploy and verify the live website on its actual hosting provider.
+
+---
+
+## FINAL OPERATING INSTRUCTIONS
+
+- Work directly in the existing repository.
+- Inspect before editing.
+- Fix causes rather than symptoms.
+- Preserve existing functionality and user data.
+- Do not introduce a second authentication system unnecessarily.
+- Do not replace database persistence with mock data.
+- Do not bypass authentication for demo accounts.
+- Do not hardcode secrets into frontend code.
+- Do not claim live deployment success without verifying the hosted website.
+- Do not stop after identifying errors: implement, test, and document the repairs.
+- If a required external credential is missing, finish all independent work and clearly specify the exact remaining action.
+- Make changes in small, understandable steps and summarize meaningful changes.
+- Prioritize a stable deployable release with working Farmer and Seller workspaces over cosmetic additions.
+
+**Start now by inspecting the actual repository and current build/deployment errors. Determine the root causes and proceed through the repair and verification phases without waiting for further instructions.**

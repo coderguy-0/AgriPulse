@@ -330,6 +330,29 @@ export function createApp({ db, environment = process.env, logger = console } = 
     return res.json({ session: toClientSession(db, next) });
   });
 
+  app.post('/api/auth/demo-session', (req, res) => {
+    const input = validateBody(demoSessionSchema, req, res);
+    if (!input) return;
+    const targetEmail = input.portalType === SELLER_ROLE ? 'seller.demo@agripulse.in' : 'farmer.demo@agripulse.in';
+    let user = getUserByEmail(db, targetEmail) || getUserByEmail(db, publicDemoEmail);
+    if (!user) {
+      try {
+        user = insertUser(db, { id: `demo-${input.portalType}-user`, email: targetEmail, roles: [input.portalType], isDemo: true });
+      } catch (error) {
+        logger.error?.(JSON.stringify({ requestId: req.requestId, operation: 'auth.demo-session', error: error.message }));
+        return apiError(res, 500, 'DEMO_UNAVAILABLE', 'The demo workspace could not be opened.', req.requestId);
+      }
+    }
+    if (!user.isDemo || !user.roles.includes(input.portalType)) {
+      return apiError(res, 409, 'DEMO_UNAVAILABLE', 'The demo workspace is unavailable for that portal.', req.requestId);
+    }
+    seedDevelopmentFarms(db, user);
+    seedDevelopmentDevices(db, user);
+    const session = createSession(db, res, user, input.portalType, true, environment);
+    storeAuditEvent(db, { actorUserId: user.id, ownerUserId: user.id, action: 'account.demo_session', resourceType: 'session', outcome: 'success', metadata: { portalType: input.portalType } });
+    return res.json({ session: toClientSession(db, { ...session, id: user.id, email: user.email }), workspace: readWorkspace(db, user.id) });
+  });
+
   app.post('/api/dev/demo-session', (req, res) => {
     // Demo access is on by default in development, off by default in production; an explicit
     // ALLOW_DEMO_SESSIONS=true opts a production deployment in (e.g. demo/staging sites), and

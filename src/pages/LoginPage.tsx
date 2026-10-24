@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { AgriPulseLogo } from '../components/AgriPulseLogo';
 import { AgriPulseLoader } from '../components/AgriPulseLoader';
-import { useAgriPulse, DEMO_MODE_ENABLED } from '../context/AgriPulseContext';
+import { useAgriPulse, DEMO_MODE_ENABLED, DEMO_FARMER_EMAIL, DEMO_SELLER_EMAIL, DEMO_PASSWORD } from '../context/AgriPulseContext';
 
 export const LoginPage: React.FC = () => {
   const {
@@ -236,35 +236,90 @@ export const LoginPage: React.FC = () => {
         {/* Right Form Card */}
         <div className="login-form-wrap">
           <div className="login-form-card bg-white rounded-3xl shadow-xl border border-slate-200 text-slate-900 p-6 sm:p-8">
-            {/* Top Primary 1-Click Action */}
-            {DEMO_MODE_ENABLED && <div className="mb-6 pb-6 border-b border-slate-100">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
-                  Development Demo Access
-                </span>
-                <span className="text-[11px] text-slate-500 font-medium">No password required</span>
+            {/* Top Primary Demo Account Access */}
+            {DEMO_MODE_ENABLED && (
+              <div className="mb-6 pb-6 border-b border-slate-200">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                    Verified Demo Accounts
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-medium">Ready for immediate testing</span>
+                </div>
+
+                <div className="space-y-2.5">
+                  {/* Seller Demo Card */}
+                  <div className="p-3 rounded-2xl bg-forest-50/70 border border-forest-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <Store className="w-3.5 h-3.5 text-emerald-700" />
+                        <span className="text-xs font-bold text-forest-950">Seller Demo Account</span>
+                      </div>
+                      <div className="text-[11px] text-slate-600 mt-1 flex flex-wrap items-center gap-2">
+                        <span>Email: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 text-slate-800 font-mono text-[10px]">{DEMO_SELLER_EMAIL}</code></span>
+                        <span>Pass: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 text-slate-800 font-mono text-[10px]">{DEMO_PASSWORD}</code></span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEmail(DEMO_SELLER_EMAIL);
+                          setPassword(DEMO_PASSWORD);
+                        }}
+                        className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200 transition"
+                      >
+                        Fill
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleInstantDemoSeller}
+                        disabled={isSubmitting}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-forest-950 hover:bg-forest-900 text-white text-xs font-bold transition shadow-xs"
+                      >
+                        {submittingAction === 'seller-demo' ? <AgriPulseLoader size="sm" className="agri-loader--button" /> : <Store className="w-3.5 h-3.5 text-emerald-400" />}
+                        <span>Use Seller Demo</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Farmer Demo Card */}
+                  <div className="p-3 rounded-2xl bg-emerald-50/60 border border-emerald-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <Sprout className="w-3.5 h-3.5 text-emerald-700" />
+                        <span className="text-xs font-bold text-emerald-950">Farmer Demo Account</span>
+                      </div>
+                      <div className="text-[11px] text-slate-600 mt-1 flex flex-wrap items-center gap-2">
+                        <span>Email: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 text-slate-800 font-mono text-[10px]">{DEMO_FARMER_EMAIL}</code></span>
+                        <span>Pass: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 text-slate-800 font-mono text-[10px]">{DEMO_PASSWORD}</code></span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEmail(DEMO_FARMER_EMAIL);
+                          setPassword(DEMO_PASSWORD);
+                        }}
+                        className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200 transition"
+                      >
+                        Fill
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleInstantDemoFarmer}
+                        disabled={isSubmitting}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs"
+                      >
+                        {submittingAction === 'farmer-demo' ? <AgriPulseLoader size="sm" className="agri-loader--button" /> : <Sprout className="w-3.5 h-3.5 text-amber-300" />}
+                        <span>Use Farmer Demo</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={handleInstantDemoFarmer}
-                  disabled={isSubmitting}
-                  className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-md transition transform active:scale-98"
-                >
-                  {submittingAction === 'farmer-demo' ? <AgriPulseLoader size="sm" className="agri-loader--button" /> : <Sprout className="w-4 h-4 text-amber-300 shrink-0" />}
-                  <span>{submittingAction === 'farmer-demo' ? 'Opening farmer workspace…' : 'Open Farmer Demo'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleInstantDemoSeller}
-                  disabled={isSubmitting}
-                  className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-3.5 rounded-2xl bg-forest-950 hover:bg-forest-900 text-white font-bold text-xs sm:text-sm shadow-md transition transform active:scale-98"
-                >
-                  {submittingAction === 'seller-demo' ? <AgriPulseLoader size="sm" className="agri-loader--button" /> : <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />}
-                  <span>{submittingAction === 'seller-demo' ? 'Opening seller workspace…' : 'Open Seller Demo'}</span>
-                </button>
-              </div>
-            </div>}
+            )}
 
             {/* Standard Seller Sign In Form */}
             <form onSubmit={handleSellerLogin} className="space-y-4">
