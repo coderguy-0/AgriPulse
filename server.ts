@@ -33,7 +33,8 @@ app.use((req, res, next) => {
 if (process.env.NODE_ENV === 'production') {
   const distDir = path.resolve('dist');
   app.use(express.static(distDir));
-  app.get('*', (_req, res) => {
+  // Express 5 (path-to-regexp v8) requires a named catch-all; bare '*' throws at startup
+  app.get('/{*splat}', (_req, res) => {
     res.sendFile(path.join(distDir, 'index.html'));
   });
 } else {
