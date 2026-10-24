@@ -331,7 +331,12 @@ export function createApp({ db, environment = process.env, logger = console } = 
   });
 
   app.post('/api/dev/demo-session', (req, res) => {
-    if (isProduction || String(environment.ALLOW_DEMO_SESSIONS).toLowerCase() === 'false') {
+    // Demo access is on by default in development, off by default in production; an explicit
+    // ALLOW_DEMO_SESSIONS=true opts a production deployment in (e.g. demo/staging sites), and
+    // ALLOW_DEMO_SESSIONS=false always disables it.
+    const demoFlag = String(environment.ALLOW_DEMO_SESSIONS || '').trim().toLowerCase();
+    const demoEnabled = demoFlag === 'false' ? false : isProduction ? demoFlag === 'true' : true;
+    if (!demoEnabled) {
       return apiError(res, 404, 'NOT_FOUND', 'This development-only route is disabled.', req.requestId);
     }
     const input = validateBody(demoSessionSchema, req, res);

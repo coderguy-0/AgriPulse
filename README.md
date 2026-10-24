@@ -139,7 +139,7 @@ features. `.data/`, `dist/` and `.smoke/` are excluded from Git.
 |---|---|
 | `VITE_WEATHER_API_URL` | Frontend endpoint for a weather service; with no value the app shows a **clearly labelled sample forecast** |
 | `VITE_AI_BACKEND_ENDPOINT` | Optional endpoint for richer assistant answers; unused values keep the local rule engine |
-| `ALLOW_DEMO_SESSIONS` | Disables the labelled development demo workspace when set to `false` (also disabled under `NODE_ENV=production`) |
+| `ALLOW_DEMO_SESSIONS` | Controls the labelled development demo workspace: on by default in development, off by default under `NODE_ENV=production`; set `true` to enable it on a production deployment (demo/staging sites) or `false` to disable it anywhere |
 
 Never place provider credentials in a `VITE_*` variable: those values ship to the browser. Weather,
 AI and commerce integrations belong on the server.
@@ -187,6 +187,10 @@ NODE_ENV=production node server.mjs
   managed database for real deployments (see below).
 - Optional server settings: `WEATHER_PROVIDER=weatherapi` + `WEATHER_API_KEY`, `ALLOW_DEMO_SESSIONS`,
   `DEVICE_ONLINE_WINDOW_SECONDS`, `WEB_ORIGINS`.
+- **Demo accounts:** the one-click "Open Farmer Demo" / "Open Seller Demo" launchers on the login
+  page are a labelled development workspace and are off by default when `NODE_ENV=production`. To
+  show them on a deployed demo/staging site, set `ALLOW_DEMO_SESSIONS=true` (the shipped
+  `render.yaml` blueprint already does this).
 
 ### What will NOT work: static-only hosts
 
