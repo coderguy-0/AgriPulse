@@ -103,44 +103,68 @@ The API prefers `better-sqlite3`. Where native modules cannot be compiled (some 
 images without downloadable Node headers), `server/db.mjs` falls back to Node's built-in
 `node:sqlite` through a small compatibility shim that implements `pragma`, `exec`, `prepare().run()`
 / `get()` / `all()`, `transaction()` and `close()`. Both drivers speak identical SQL and positional
-parameters, so application behaviour is unchanged. **This fallback is a local-development
-convenience only** — production must use a managed database, not a file-backed shim.
+parameters, so application behaviour is unchanged. **The fallback is a local-development
+convenience only.** Deploy with `better-sqlite3` on a persistent, backed-up, single-instance disk;
+use a managed client/server database before scaling to multiple API instances.
 
 ## Local development
 
 **Requirements:** Node.js 20.12 or newer (22+ recommended) and npm.
 
 ```bash
-npm install
+npm ci
+npm run db:setup   # optional locally: startup also runs additive migrations + demo seeding
 npm run dev
 ```
 
 `npm run dev` starts the unified server (Vite + API) on `0.0.0.0:3000`; the API is embedded and
-serves `/api` on the same port. Environment settings: `AGRIPULSE_DB_PATH`,
-`DEVICE_ONLINE_WINDOW_SECONDS`, `ALLOW_DEMO_SESSIONS`, `AGRIPULSE_API_PROXY`.
+serves `/api` on the same port. Browser code uses relative `/api` URLs, never a production
+localhost address. See `.env.example` for all supported environment settings.
+
+With demo access enabled, the intentional public demo credentials are:
+
+| Portal | Email | Password |
+|---|---|---|
+| Farmer | `farmer.demo@agripulse.in` | `AgriPulseDemo!2026` |
+| Seller | `seller.demo@agripulse.in` | `AgriPulseDemo!2026` |
+
+These are not secret production credentials. Each account has one role, no administrative access,
+and a separate workspace. The login-page launchers submit these credentials through the ordinary
+`/api/auth/login` endpoint; they do not bypass authentication. `npm run db:setup` is idempotent and
+refuses to overwrite an unrelated account that already owns a reserved demo email.
 
 ### Verification
 
 ```bash
 npm run lint          # TypeScript type check + server syntax checks
-npm test              # API tests (accounts, roles, ownership, pairing, telemetry, demo access)
+npm test              # API, authorization, listing validation, migration and demo-seed tests
 npm run test:web      # field-intelligence unit tests (provenance, bands, alerts, screening)
 npm run test:render   # renders every public page and portal module to catch render-time breakage
-npm run test:all      # all three suites
+npm run test:all      # API + field-intelligence + render suites
 npm run build         # production bundle
 ```
 
-`npm run preview` serves the static frontend only; run the API separately when testing authenticated
-features. `.data/`, `dist/` and `.smoke/` are excluded from Git.
+For browser verification, first start the production server, then run
+`TEST_BASE_URL=http://127.0.0.1:3000 npm run test:browser` and
+`TEST_BASE_URL=http://127.0.0.1:3000 npm run test:auth-browser` in another terminal. The second
+suite checks visible demo login, role isolation, Seller/Farmer persistence, save retry, expired
+sessions and logout; use a disposable test database because it creates unique records. The test URL
+is a local test setting, not a browser-facing API configuration. `npm run preview` is only a static Vite
+preview with a development proxy; use `NODE_ENV=production npm start` for full-stack verification.
+`.data/`, `dist/` and `.smoke/` are excluded from Git.
 
 ## Configuration hooks
 
 | Variable | Effect |
 |---|---|
-| `VITE_WEATHER_API_URL` | Frontend endpoint for a weather service; with no value the app shows a **clearly labelled sample forecast** |
-| `VITE_AI_BACKEND_ENDPOINT` | Optional endpoint for richer assistant answers; unused values keep the local rule engine |
-| `VITE_DEMO_MODE` | Build-time flag (`VITE_DEMO_MODE=true npm run build`): renders the labelled demo launchers on the login page in a production build. Always on in development |
-| `ALLOW_DEMO_SESSIONS` | Controls the labelled development demo workspace: on by default in development, off by default under `NODE_ENV=production`; set `true` to enable it on a production deployment (demo/staging sites) or `false` to disable it anywhere |
+| `PORT`, `HOST` | Unified HTTP listener; defaults to `3000` and `0.0.0.0` |
+| `AGRIPULSE_DB_PATH` | SQLite file; defaults to `.data/agripulse.sqlite`. Use an absolute persistent-disk path in deployment |
+| `TRUST_PROXY` | Set `true` only behind a trusted one-hop proxy such as Render; otherwise leave `false` |
+| `WEB_ORIGINS` | Optional comma-separated **additional** browser origins. The app's own origin is accepted automatically; wildcard origins and production localhost values are not needed |
+| `WEATHER_PROVIDER`, `WEATHER_API_KEY` | Server-only WeatherAPI configuration (`WEATHER_PROVIDER=weatherapi`). Without both, the API reports weather unavailable; only a demo user can explicitly choose the labelled demonstration forecast |
+| `DEVICE_ONLINE_WINDOW_SECONDS` | Trusted-heartbeat freshness window, default `300` |
+| `VITE_DEMO_MODE` | Build-time flag (`VITE_DEMO_MODE=true npm run build`): renders the labelled demo launchers in a production build. Always on in development |
+| `ALLOW_DEMO_SESSIONS` | Runtime demo credential gate: on by default in development, off by default under `NODE_ENV=production`; set `true` only for an intentional public demo/staging deployment |
 
 Never place provider credentials in a `VITE_*` variable: those values ship to the browser. Weather,
 AI and commerce integrations belong on the server.
@@ -157,7 +181,8 @@ AI and commerce integrations belong on the server.
 - Reference moisture bands are published general guidance for mineral soils, not field-calibrated
   thresholds, and the interface says so next to every recommendation.
 - Alert preferences control in-portal highlights only; SMS, email and push delivery are not wired.
-- The demo workspace shares one local database and is not a production account.
+- The two public demo identities use separate role-specific workspaces in one database. They are
+  not private production accounts; never enter real personal, financial or device credentials.
 
 ## Deploying
 
@@ -166,45 +191,64 @@ farmer/seller portals, devices and weather all talk to the Express API (`/api/*`
 same origin, backed by a SQLite file. You must deploy it to a host that runs the Node server
 continuously — static-only hosts cannot run the API, so portals will not work there.
 
-### Render (one click)
+### Render (persistent demo deployment)
 
-The repository ships a [Render Blueprint](render.yaml): in the Render dashboard choose
-**New + → Blueprint → select this repository**. It builds with `npm install && npm run build` and
-starts with `node server.mjs`, health-checked on `/api/health`. The free plan sleeps after ~15
-minutes of inactivity (first request after a sleep takes ~30–60s).
+The repository ships a [Render Blueprint](render.yaml) for a single Node service with a 1 GB
+persistent disk. **A persistent disk requires a paid web-service plan; a free/ephemeral instance
+cannot provide durable login or workspace persistence.**
+
+1. Push this branch to the repository you will deploy, then choose **New + → Blueprint → select the
+   repository** in Render and apply `render.yaml`.
+2. Review the paid plan and disk before creating the service. The blueprint mounts the disk at
+   `/var/data` and sets `AGRIPULSE_DB_PATH=/var/data/agripulse.sqlite`.
+3. Render runs `npm ci && npm run build`. `VITE_DEMO_MODE=true` is supplied at build time, so the
+   labelled Farmer and Seller launchers are visible.
+4. Each start runs `npm run db:setup && node server.mjs`. Setup applies additive migrations and
+   idempotently ensures the two role-specific demo workspaces; it does not reset workspace data.
+   `ALLOW_DEMO_SESSIONS=true` enables the public demo credentials at runtime.
+5. After deployment, open `https://<your-service>.onrender.com/api/health` and require a JSON
+   success response, then open `/farmer/login` and `/login`. Test both demo launchers, reload each
+   workspace, sign out, and sign in again. A blueprint/configuration check is not a substitute for
+   this hosted verification.
+
+`TRUST_PROXY=true` is set because Render terminates TLS in front of Node. Same-origin `/api`
+requests need no `WEB_ORIGINS` entry. Keep the service at one instance while using SQLite; attach
+backups/snapshots and do not horizontally scale or use a second process against the same file.
+Before converting an existing ephemeral deployment, export and securely back up its SQLite file.
+Attaching a new empty disk does not migrate the old file automatically; restore it only through a
+reviewed backup/restore procedure, never by overwriting a live database.
 
 ### Any Node platform (Railway, Fly.io, a VPS, …)
 
 ```bash
-npm install
-npm run build            # frontend bundle → dist/
-NODE_ENV=production node server.mjs
+npm ci
+VITE_DEMO_MODE=true npm run build       # omit/set false to hide demo launchers
+export NODE_ENV=production
+export AGRIPULSE_DB_PATH=/absolute/persistent-path/agripulse.sqlite
+export ALLOW_DEMO_SESSIONS=true         # intentional public demo only; false otherwise
+npm run db:setup                        # additive migrations + idempotent demo initialization
+npm start                               # serves dist/ and /api on 0.0.0.0:${PORT:-3000}
 ```
 
-- Node.js 20.12+ (22+ recommended); `PORT` is read from the environment automatically.
-- Set `NODE_ENV=production` so the server serves the built frontend from `dist/`.
-- The database lives at `AGRIPULSE_DB_PATH` (default `.data/agripulse.sqlite`). It is a local
-  file: data survives restarts but resets when the disk/instance is recreated. Back it up or use a
-  managed database for real deployments (see below).
-- Optional server settings: `WEATHER_PROVIDER=weatherapi` + `WEATHER_API_KEY`, `ALLOW_DEMO_SESSIONS`,
-  `DEVICE_ONLINE_WINDOW_SECONDS`, `WEB_ORIGINS`.
-- **Demo accounts:** the one-click "Open Farmer Demo" / "Open Seller Demo" launchers on the login
-  page are a labelled development workspace and are off by default in production builds. Showing
-  them on a deployed demo/staging site needs **both** gates open:
-  1. `VITE_DEMO_MODE=true` at **build time** (frontend: renders the launchers), e.g.
-     `VITE_DEMO_MODE=true npm run build`
-  2. `ALLOW_DEMO_SESSIONS=true` at **runtime** (server: serves the demo sessions)
-  
-  The shipped `render.yaml` blueprint sets both.
+- Use Node.js 20.12+ (22+ recommended), TLS, and a persistent backed-up filesystem. The platform
+  may inject `PORT`; `HOST` defaults to `0.0.0.0`.
+- Set `TRUST_PROXY=true` only for one trusted proxy hop. Leave it false for direct exposure.
+- Set `WEB_ORIGINS` only for additional explicitly trusted browser origins; same-origin requests
+  work without it. Never use a wildcard with credentialed sessions.
+- Demo access requires **both** `VITE_DEMO_MODE=true` at build time and
+  `ALLOW_DEMO_SESSIONS=true` at runtime. Disable both and rebuild for a non-demo deployment.
+- Optional real weather: server-only `WEATHER_PROVIDER=weatherapi` plus `WEATHER_API_KEY`.
+- Run `npm run lint && npm run test:all && npm run build` before deployment, then repeat login,
+  authorization, reload persistence and logout checks against the actual hosted URL.
 
 ### What will NOT work: static-only hosts
 
-- **Vercel / Netlify / GitHub Pages (static):** `vercel.json` rewrites every route to
-  `index.html`, so only the *public marketing pages* render. Every `/api/*` call receives HTML
-  instead of JSON — the farmer/seller portals, login, devices and live monitoring do not function.
-  A file-backed SQLite database is also not durable on serverless runtimes. Making the full app
-  run on such a host requires re-architecting the API as serverless functions with a managed
-  database; that has not been done.
+- **Vercel / Netlify / GitHub Pages (static):** these configurations can serve the built public
+  SPA, but they do not deploy the Express API or provide durable SQLite storage. The SPA rewrites
+  deliberately exclude/preserve `/api/*`; those requests therefore return the host's API 404/error
+  rather than being disguised as a successful frontend response. Login, portals, devices and live
+  monitoring do not function without the Node API. Making the full app serverless requires a new
+  API deployment and a managed database; that has not been done.
 - If a static deploy shows a **blank white page**, the host is serving the wrong directory
   (the source `index.html` instead of `dist/`) or the wrong asset base path (GitHub Pages needs
   `base: '/<repo>/'` in `vite.config.ts`).

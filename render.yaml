@@ -1,27 +1,33 @@
-# Render Blueprint — one-click deploy of AGRIPULSE as a single web service.
-#
-# Deploy from the Render dashboard: "New +" → "Blueprint" → pick this repository.
-# Or manually: Build command  → npm install && VITE_DEMO_MODE=true npm run build
-#              Start command  → node server.mjs
-#              (Render injects PORT automatically; NODE_ENV is set below.)
-# VITE_DEMO_MODE=true is a BUILD-TIME flag: it bakes the demo launchers into the frontend.
-#
-# Note: the free plan sleeps the service after ~15 minutes of inactivity;
-# the first request after a sleep takes ~30-60s to wake up.
+# Render Blueprint — one Node web service with a persistent SQLite disk.
+# Persistent disks require a paid Render web-service plan; the free plan is not durable.
+# The browser and API share one origin, so WEB_ORIGINS is not required for normal use.
 services:
   - type: web
     name: agripulse
     runtime: node
-    plan: free
+    plan: starter
     region: oregon
-    buildCommand: npm install && VITE_DEMO_MODE=true npm run build
-    startCommand: node server.mjs
+    buildCommand: npm ci && npm run build
+    # Migrations and the two public demo workspaces are additive/idempotent.
+    # They never overwrite an existing non-demo account with a reserved email.
+    startCommand: npm run db:setup && node server.mjs
     healthCheckPath: /api/health
     autoDeploy: true
+    disk:
+      name: agripulse-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
-      # Show the one-click "Open Farmer/Seller Demo" launchers on the login page.
-      # Remove this (or set false) to hide the labelled demo workspace in production.
+      - key: AGRIPULSE_DB_PATH
+        value: /var/data/agripulse.sqlite
+      # Render terminates TLS in front of the Node process.
+      - key: TRUST_PROXY
+        value: "true"
+      # Both gates are intentional for this public, non-admin demo deployment.
+      # Set both to false (and rebuild) for a deployment without demo access.
       - key: ALLOW_DEMO_SESSIONS
+        value: "true"
+      - key: VITE_DEMO_MODE
         value: "true"

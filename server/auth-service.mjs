@@ -81,15 +81,13 @@ export function toClientSession(db, session) {
   if (!session) return null;
   const workspace = readWorkspace(db, session.id).data;
   const portalType = session.portalType;
-  const email = session.isDemo
-    ? (portalType === 'seller' ? 'seller.demo@agripulse.in' : 'farmer.demo@agripulse.in')
-    : session.email;
   const result = {
     version: 'v1',
     userId: session.id,
-    email,
+    email: session.email,
     role: portalType === 'seller' ? 'Seller' : 'Farmer',
     portalType,
+    portals: session.roles.filter((role) => role === 'farmer' || role === 'seller'),
     isDemo: session.isDemo,
     rememberMe: session.rememberMe,
     loggedInAt: session.loggedInAt,

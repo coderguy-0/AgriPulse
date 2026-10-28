@@ -40,10 +40,22 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       cache: 'no-store',
     });
   } catch {
-    throw new ApiError('AGRIPULSE API is unavailable. Start the full-stack development server and try again.', 0, 'API_UNAVAILABLE');
+    throw new ApiError('AGRIPULSE API is unavailable. Check your connection and the service deployment, then try again.', 0, 'API_UNAVAILABLE');
   }
 
-  const payload = await response.json().catch(() => null) as T | ApiErrorBody | null;
+  const responseText = await response.text();
+  let payload: T | ApiErrorBody | null = null;
+  if (responseText) {
+    try {
+      payload = JSON.parse(responseText) as T | ApiErrorBody;
+    } catch {
+      // A static host commonly returns index.html for /api routes. Never interpret that
+      // response as a successful session or workspace payload.
+      if (response.ok) {
+        throw new ApiError('The AGRIPULSE API returned an invalid response. Verify that /api is routed to the Node service, not the static frontend.', response.status, 'INVALID_API_RESPONSE');
+      }
+    }
+  }
   if (!response.ok) {
     const error = (payload as ApiErrorBody | null)?.error;
     throw new ApiError(
@@ -53,6 +65,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       error?.requestId,
       error?.details,
     );
+  }
+  if (payload === null) {
+    throw new ApiError('The AGRIPULSE API returned an empty response. Check the service health and try again.', response.status, 'INVALID_API_RESPONSE');
   }
   return payload as T;
 }
@@ -94,13 +109,6 @@ export const authApi = {
   },
   async register(input: Record<string, unknown> & { portalType: PortalType; password: string }) {
     return request<{ session: AuthSession; workspace: WorkspaceResponse }>('/api/auth/register', { method: 'POST', body: jsonBody(input) });
-  },
-  async demoSession(portalType: PortalType) {
-    try {
-      return await request<{ session: AuthSession }>('/api/auth/demo-session', { method: 'POST', body: jsonBody({ portalType }) });
-    } catch {
-      return await request<{ session: AuthSession }>('/api/dev/demo-session', { method: 'POST', body: jsonBody({ portalType }) });
-    }
   },
   async logout() {
     return request<{ ok: true }>('/api/auth/logout', { method: 'POST' });

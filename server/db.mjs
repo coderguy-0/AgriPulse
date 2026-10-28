@@ -228,37 +228,36 @@ export function openDatabase(filename = process.env.AGRIPULSE_DB_PATH || '.data/
 const DEMO_PASSWORD_HASH = 'scrypt$32768$8$1$79deb39026de761e5f433ee389b620d9$433b8b9690a254233af0a80e01d43ea32b3df8b58fd5f9737acdc0f2fc29460c235bac579b831870f98a7747b690483719a539237a2475bd84a9e3ad0b5fabea';
 
 export function seedDemoAccounts(db) {
+  // Account creation, sample workspaces and device fixtures succeed or roll back together.
+  db.transaction(() => seedDemoAccountsTransaction(db))();
+}
+
+function findOrCreateDemoUser(db, { id, email, role, now }) {
+  const existing = db.prepare('SELECT id, roles_json, is_demo FROM users WHERE email = ? COLLATE NOCASE').get(email);
+  if (existing) {
+    let roles = [];
+    try { roles = JSON.parse(existing.roles_json); } catch { /* handled as an invalid demo role below */ }
+    if (!existing.is_demo || !roles.includes(role)) {
+      console.warn(JSON.stringify({ operation: 'demo.seed', status: 'skipped_reserved_email_conflict', email }));
+      return null;
+    }
+    return { id: existing.id };
+  }
+  db.prepare('INSERT INTO users(id, email, password_hash, roles_json, is_demo, created_at) VALUES (?, ?, ?, ?, 1, ?)')
+    .run(id, email, DEMO_PASSWORD_HASH, JSON.stringify([role]), now);
+  return { id };
+}
+
+function seedDemoAccountsTransaction(db) {
   const now = new Date().toISOString();
-
-  // 1. Farmer demo user
   const farmerEmail = 'farmer.demo@agripulse.in';
-  let farmerUser = db.prepare('SELECT id FROM users WHERE email = ? COLLATE NOCASE').get(farmerEmail);
-  if (!farmerUser) {
-    db.prepare('INSERT INTO users(id, email, password_hash, roles_json, is_demo, created_at) VALUES (?, ?, ?, ?, 1, ?)')
-      .run('demo-farmer-user', farmerEmail, DEMO_PASSWORD_HASH, JSON.stringify(['farmer']), now);
-    farmerUser = { id: 'demo-farmer-user' };
-  }
-
-  // 2. Seller demo user
   const sellerEmail = 'seller.demo@agripulse.in';
-  let sellerUser = db.prepare('SELECT id FROM users WHERE email = ? COLLATE NOCASE').get(sellerEmail);
-  if (!sellerUser) {
-    db.prepare('INSERT INTO users(id, email, password_hash, roles_json, is_demo, created_at) VALUES (?, ?, ?, ?, 1, ?)')
-      .run('demo-seller-user', sellerEmail, DEMO_PASSWORD_HASH, JSON.stringify(['seller']), now);
-    sellerUser = { id: 'demo-seller-user' };
-  }
+  const farmerUser = findOrCreateDemoUser(db, { id: 'demo-farmer-user', email: farmerEmail, role: 'farmer', now });
+  const sellerUser = findOrCreateDemoUser(db, { id: 'demo-seller-user', email: sellerEmail, role: 'seller', now });
 
-  // 3. Multi-role dev demo user
-  const devDemoEmail = 'demo.workspace@demo.agripulse.invalid';
-  let devDemoUser = db.prepare('SELECT id FROM users WHERE email = ? COLLATE NOCASE').get(devDemoEmail);
-  if (!devDemoUser) {
-    db.prepare('INSERT INTO users(id, email, password_hash, roles_json, is_demo, created_at) VALUES (?, ?, ?, ?, 1, ?)')
-      .run('demo-workspace-user', devDemoEmail, DEMO_PASSWORD_HASH, JSON.stringify(['farmer', 'seller']), now);
-    devDemoUser = { id: 'demo-workspace-user' };
-  }
-
-  // Seed sample farms and devices for demo-farmer-user and demo-workspace-user
-  for (const uid of [farmerUser.id, devDemoUser.id]) {
+  // Sample records are only added to verified demo identities, never to an existing
+  // non-demo account that happens to use a reserved email address.
+  for (const uid of farmerUser ? [farmerUser.id] : []) {
     const existingFarm = db.prepare('SELECT id FROM farms WHERE owner_user_id = ? LIMIT 1').get(uid);
     if (!existingFarm) {
       const farms = [
@@ -304,12 +303,12 @@ export function seedDemoAccounts(db) {
   }
 
   // Seed initial farmer workspace snapshot
-  const existingFarmerSnapshot = db.prepare('SELECT user_id FROM workspace_snapshots WHERE user_id = ?').get('demo-farmer-user');
-  if (!existingFarmerSnapshot) {
+  const existingFarmerSnapshot = farmerUser && db.prepare('SELECT user_id FROM workspace_snapshots WHERE user_id = ?').get(farmerUser.id);
+  if (farmerUser && !existingFarmerSnapshot) {
     const farmerWorkspaceData = {
       schemaVersion: 1,
       profile: {
-        id: 'demo-farmer-user',
+        id: farmerUser.id,
         name: 'Rajeshwar Singh Chaudhary',
         email: farmerEmail,
         mobile: '9812456780',
@@ -367,16 +366,16 @@ export function seedDemoAccounts(db) {
       activeFarmId: 'farm-001',
     };
     db.prepare('INSERT INTO workspace_snapshots(user_id, revision, payload_json, updated_at) VALUES (?, 1, ?, ?)')
-      .run('demo-farmer-user', JSON.stringify(farmerWorkspaceData), now);
+      .run(farmerUser.id, JSON.stringify(farmerWorkspaceData), now);
   }
 
   // Seed initial seller workspace snapshot
-  const existingSellerSnapshot = db.prepare('SELECT user_id FROM workspace_snapshots WHERE user_id = ?').get('demo-seller-user');
-  if (!existingSellerSnapshot) {
+  const existingSellerSnapshot = sellerUser && db.prepare('SELECT user_id FROM workspace_snapshots WHERE user_id = ?').get(sellerUser.id);
+  if (sellerUser && !existingSellerSnapshot) {
     const sellerWorkspaceData = {
       schemaVersion: 1,
       sellerProfile: {
-        id: 'demo-seller-user',
+        id: sellerUser.id,
         businessName: 'Sample Agro Cooperative',
         tradeName: 'Karnal Kisan Agro Co-op',
         contactPerson: 'Gurpreet Singh Gill',
@@ -390,7 +389,7 @@ export function seedDemoAccounts(db) {
         city: 'Karnal',
         address: 'Shop No. 14, Anaj Mandi, GT Road',
         pincode: '132001',
-        isVerified: true,
+        isVerified: false,
         isDemoSeller: true,
         rating: 4.8,
         totalOrders: 38,
@@ -414,6 +413,6 @@ export function seedDemoAccounts(db) {
       chatHistory: [],
     };
     db.prepare('INSERT INTO workspace_snapshots(user_id, revision, payload_json, updated_at) VALUES (?, 1, ?, ?)')
-      .run('demo-seller-user', JSON.stringify(sellerWorkspaceData), now);
+      .run(sellerUser.id, JSON.stringify(sellerWorkspaceData), now);
   }
 }
