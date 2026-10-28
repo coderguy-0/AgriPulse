@@ -295,10 +295,10 @@ export const AiInsightsPage: React.FC = () => {
               ]}
             />
             <Notice tone="neutral">
-              Weather advisories are labelled <ProvenanceTag kind="forecast" /> in every module. If no provider endpoint is
-              configured, AGRIPULSE shows a clearly labelled sample forecast instead of pretending it is live weather.
+              Weather advisories are labelled <ProvenanceTag kind="forecast" /> in every module. If no provider is configured,
+              live weather is unavailable; only demo users can explicitly choose a labelled demonstration forecast.
               <InfoTip label="Weather provider status">
-                Set <code>VITE_WEATHER_API_URL</code> to a server-side weather endpoint to replace the labelled sample forecast.
+                Configure server-only <code>WEATHER_PROVIDER=weatherapi</code> and <code>WEATHER_API_KEY</code> to enable live provider responses.
               </InfoTip>
             </Notice>
             <div className="ap-row" style={{ marginTop: 10 }}>

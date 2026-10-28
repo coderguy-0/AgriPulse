@@ -102,9 +102,13 @@ export const AccountSettingsPage: React.FC = () => {
     setTimeout(() => setSavedBanner(null), 5000);
   };
 
-  const handleSignOut = () => {
-    logout();
-    navigate('/login', { replace: true });
+  const handleSignOut = async () => {
+    try {
+      await logout();
+      navigate('/farmer/login', { replace: true });
+    } catch {
+      // The context keeps the session active and displays a server-logout error.
+    }
   };
 
   return (

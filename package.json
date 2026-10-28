@@ -17,7 +17,9 @@
     "test:render": "node scripts/buildSmoke.mjs && node .smoke/ssrSmoke.cjs",
     "test:all": "npm test && npm run test:web && npm run test:render",
     "test:web": "node scripts/buildTests.mjs && node --test \".smoke/tests/*.test.cjs\"",
-    "test:browser": "node scripts/browserSmoke.mjs"
+    "test:browser": "node scripts/browserSmoke.mjs",
+    "test:auth-browser": "node scripts/authPersistenceSmoke.mjs",
+    "db:setup": "node server/db-setup.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

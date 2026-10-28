@@ -5,14 +5,28 @@ import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
 import { randomUUID } from 'node:crypto';
 import { deviceMetadataPatchSchema, deviceRegistrationSchema, demoSessionSchema, gatewayAssignmentSchema, loginSchema, pairingCompleteSchema, portalSwitchSchema, registerSchema, telemetryIngestSchema, heartbeatSchema } from './schemas.mjs';
-import { clearSession, createSession, getUserByEmail, getUserById, insertUser, readSessionFromRequest, toClientSession } from './auth-service.mjs';
+import { clearSession, createSession, getUserByEmail, getUserById, readSessionFromRequest, toClientSession } from './auth-service.mjs';
 import { assignGateway, completePairing, createPairingSession, getDevice, getDeviceEvents, getTelemetry, ingestTelemetry, listDevices, registerDevice, retireDevice, updateDeviceMetadata, recordHeartbeat } from './device-service.mjs';
-import { newId, hashPassword, sha256, verifyPassword } from './security.mjs';
+import { newId, hashPassword, verifyPassword } from './security.mjs';
 import { readWorkspace, storeAuditEvent, writeWorkspace } from './workspace.mjs';
 
 const FARMER_ROLE = 'farmer';
 const SELLER_ROLE = 'seller';
-const publicDemoEmail = 'demo.workspace@demo.agripulse.invalid';
+const PUBLIC_DEMO_EMAILS = new Set(['farmer.demo@agripulse.in', 'seller.demo@agripulse.in']);
+
+export function isDemoAccessEnabled(environment = process.env) {
+  const flag = String(environment.ALLOW_DEMO_SESSIONS || '').trim().toLowerCase();
+  if (flag === 'false') return false;
+  return environment.NODE_ENV === 'production' ? flag === 'true' : true;
+}
+
+function isSameOrigin(req, origin) {
+  try {
+    return new URL(origin).origin === `${req.protocol}://${req.get('host')}`;
+  } catch {
+    return false;
+  }
+}
 
 function apiError(res, status, code, message, requestId, details) {
   return res.status(status).json({ error: { code, message, requestId, ...(details ? { details } : {}) } });
@@ -33,10 +47,6 @@ function validateBody(schema, req, res) {
   apiError(res, 400, 'VALIDATION_ERROR', 'Check the highlighted fields and try again.', req.requestId,
     parsed.error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })));
   return null;
-}
-
-function decodeRoles(value) {
-  try { return JSON.parse(value); } catch { return []; }
 }
 
 function makeInitialFarm(input, farmerProfile) {
@@ -135,63 +145,12 @@ function buildSellerProfile(userId, input) {
   };
 }
 
-function seedDevelopmentFarms(db, user) {
-  const existing = db.prepare('SELECT id FROM farms WHERE owner_user_id = ? LIMIT 1').get(user.id);
-  if (existing) return;
-  const now = new Date().toISOString();
-  const farms = [
-    { id: 'farm-001', name: 'Green Horizon Progressive Farm', farmerName: 'Rajeshwar Singh Chaudhary', state: 'Haryana', district: 'Karnal', village: 'Taraori', coordinates: { lat: 29.7857, lon: 76.9339 }, totalArea: 8.5, areaUnit: 'acre', bighaToAcreFactor: 0.25, ownershipType: 'Owned', soilType: 'Alluvial Loam (pH 7.1)', waterSource: 'Canal and borewell (sample)', notes: 'Development sample farm record.', isArchived: false, isDemoRecord: true, createdAt: '2025-11-15T08:00:00.000Z', updatedAt: now },
-    { id: 'farm-002', name: 'Shivalik Foothill Mustard & Pulse Block', farmerName: 'Rajeshwar Singh Chaudhary', state: 'Haryana', district: 'Kurukshetra', village: 'Shahabad Markanda', coordinates: { lat: 30.1675, lon: 76.8704 }, totalArea: 4, areaUnit: 'acre', bighaToAcreFactor: 0.25, ownershipType: 'Family Holding', soilType: 'Sandy Clay Loam (sample)', waterSource: 'Supplemental irrigation (sample)', notes: 'Development sample farm record.', isArchived: false, isDemoRecord: true, createdAt: '2026-01-10T09:00:00.000Z', updatedAt: now },
-  ];
-  const plots = [
-    { id: 'plot-101', farmId: 'farm-001', name: 'Plot A1 — North Canal Block', area: 4, areaUnit: 'acre', soilType: 'Alluvial Loam', irrigationMethod: 'Check Basin / Canal Regulated' },
-    { id: 'plot-102', farmId: 'farm-001', name: 'Plot A2 — Central Tube-well Block', area: 3, areaUnit: 'acre', soilType: 'Clay Loam', irrigationMethod: 'Furrow / Border Strip Irrigation' },
-    { id: 'plot-103', farmId: 'farm-001', name: 'Plot A3 — East Drip Vegetable Block', area: 1.5, areaUnit: 'acre', soilType: 'Sandy Loam', irrigationMethod: 'Inline Drip Irrigation' },
-    { id: 'plot-201', farmId: 'farm-002', name: 'Plot B1 — Mustard Ridge Field', area: 2.5, areaUnit: 'acre', soilType: 'Sandy Clay Loam', irrigationMethod: 'Mini Sprinkler' },
-    { id: 'plot-202', farmId: 'farm-002', name: 'Plot B2 — Pulse Rotation Field', area: 1.5, areaUnit: 'acre', soilType: 'Sandy Loam', irrigationMethod: 'Supplemental Sprinkler' },
-  ];
-  const insertFarm = db.prepare('INSERT INTO farms(owner_user_id, id, data_json) VALUES (?, ?, ?)');
-  const insertPlot = db.prepare('INSERT INTO plots(owner_user_id, farm_id, id, data_json) VALUES (?, ?, ?, ?)');
-  db.transaction(() => {
-    for (const farm of farms) insertFarm.run(user.id, farm.id, JSON.stringify(farm));
-    for (const plot of plots) insertPlot.run(user.id, plot.farmId, plot.id, JSON.stringify(plot));
-  })();
-}
-
-function seedDevelopmentDevices(db, user) {
-  if (db.prepare('SELECT 1 FROM devices WHERE owner_user_id = ? LIMIT 1').get(user.id)) return;
-  const fixtures = [
-    {
-      id: 'device-demo-gateway-01', farmId: 'farm-001', type: 'lora_gateway', name: 'Main Farm Gateway', serialNumber: 'AP-DEMO-GW-001',
-      metadata: { locationLabel: 'Farmhouse roof, east side', latitude: 29.7857, longitude: 76.9339, installedAt: '2026-10-07', backhaulType: 'ethernet', powerSource: 'mains', communicationProfile: 'Read from commissioned gateway (not configured in demo)', coverageNotes: 'Sample coverage note; not verified in a physical installation.', notes: 'Sample registration only. No gateway hardware has been provisioned.' },
-      createdAt: '2026-10-07T08:30:00.000Z',
-    },
-    {
-      id: 'device-demo-node-01', farmId: 'farm-001', plotId: 'plot-101', gatewayId: 'device-demo-gateway-01', type: 'sensor_node', name: 'North Canal Soil Node', serialNumber: 'AP-DEMO-ND-001',
-      metadata: { locationLabel: 'North boundary, beside the canal bund', latitude: 29.7862, longitude: 76.9347, installedAt: '2026-10-08', installedSensors: ['soil_moisture', 'soil_temperature', 'air_humidity', 'soil_npk'], powerSource: 'solar_battery', samplingIntervalMinutes: 30, communicationProfile: 'Inherited from gateway at commissioning', calibrationStatus: 'not_calibrated', notes: 'Sample registration only. Pairing and calibration have not been completed.' },
-      createdAt: '2026-10-08T06:15:00.000Z',
-    },
-  ];
-  db.transaction(() => {
-    for (const fixture of fixtures) {
-      db.prepare(`INSERT INTO devices(id, owner_user_id, farm_id, plot_id, gateway_id, type, name, serial_number, metadata_json, is_demo_record, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`)
-        .run(fixture.id, user.id, fixture.farmId, fixture.plotId || null, fixture.gatewayId || null, fixture.type, fixture.name, fixture.serialNumber, JSON.stringify(fixture.metadata), fixture.createdAt, fixture.createdAt);
-    }
-    for (const fixture of fixtures) {
-      const device = db.prepare('SELECT * FROM devices WHERE id = ?').get(fixture.id);
-      db.prepare(`INSERT INTO device_events(id, device_id, owner_user_id, event_type, title, description, source, occurred_at)
-        VALUES (?, ?, ?, 'registered', ?, ?, 'demo', ?)`)
-        .run(newId('evt'), fixture.id, user.id, `${fixture.type === 'lora_gateway' ? 'Demo gateway' : 'Demo sensor node'} record created`, 'Sample device metadata only. No hardware heartbeat or telemetry has been received.', fixture.createdAt);
-    }
-  })();
-}
-
 export function createApp({ db, environment = process.env, logger = console } = {}) {
   if (!db) throw new Error('createApp requires a database instance.');
   const app = express();
   const weatherService = createWeatherService({ environment });
   const isProduction = environment.NODE_ENV === 'production';
+  const demoEnabled = isDemoAccessEnabled(environment);
   const allowedOrigins = new Set(String(environment.WEB_ORIGINS || environment.WEB_ORIGIN || '').split(',').map((value) => value.trim()).filter(Boolean));
   const onlineWindowSeconds = Math.max(60, Math.min(Number(environment.DEVICE_ONLINE_WINDOW_SECONDS || 300), 86400));
 
@@ -204,7 +163,9 @@ export function createApp({ db, environment = process.env, logger = console } = 
     res.setHeader('Cache-Control', 'no-store');
     const origin = req.get('origin');
     if (origin) {
-      const allowed = !isProduction || allowedOrigins.has(origin);
+      // Browser POST/PUT requests include Origin even on the same origin. Always allow the
+      // origin serving this app; WEB_ORIGINS is only for additional, explicitly trusted origins.
+      const allowed = !isProduction || isSameOrigin(req, origin) || allowedOrigins.has(origin);
       if (!allowed) return apiError(res, 403, 'ORIGIN_NOT_ALLOWED', 'This origin is not allowed to call the AGRIPULSE API.', req.requestId);
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -280,7 +241,7 @@ export function createApp({ db, environment = process.env, logger = console } = 
       db.transaction(() => {
         db.prepare('INSERT INTO users(id, email, password_hash, roles_json, is_demo, created_at) VALUES (?, ?, ?, ?, 0, ?)')
           .run(id, input.email.trim().toLowerCase(), passwordHash, JSON.stringify(roles), now);
-        const write = writeWorkspace(db, { id, isDemo: false }, data, 0);
+        const write = writeWorkspace(db, { id, email: input.email.trim().toLowerCase(), isDemo: false }, data, 0);
         if (!write.ok) {
           const error = new Error(write.message);
           error.code = write.code;
@@ -309,6 +270,9 @@ export function createApp({ db, environment = process.env, logger = console } = 
     if (!validPassword || !user || !requestedPortal || !user.roles.includes(requestedPortal)) {
       return apiError(res, 401, 'INVALID_CREDENTIALS', 'Email or password is incorrect, or this account is not enabled for that portal.', req.requestId);
     }
+    if (user.isDemo && (!demoEnabled || !PUBLIC_DEMO_EMAILS.has(user.email.toLowerCase()))) {
+      return apiError(res, 403, 'DEMO_DISABLED', 'This demo account is not enabled on this deployment.', req.requestId);
+    }
     const session = createSession(db, res, user, requestedPortal, input.rememberMe, environment);
     storeAuditEvent(db, { actorUserId: user.id, ownerUserId: user.id, action: 'account.login', resourceType: 'session', outcome: 'success', metadata: { portalType: requestedPortal } });
     return res.json({ session: toClientSession(db, { ...session, id: user.id, email: user.email }), workspace: readWorkspace(db, user.id) });
@@ -330,55 +294,27 @@ export function createApp({ db, environment = process.env, logger = console } = 
     return res.json({ session: toClientSession(db, next) });
   });
 
-  app.post('/api/auth/demo-session', (req, res) => {
+  const handleDemoSession = (req, res) => {
+    if (!demoEnabled) {
+      return apiError(res, 404, 'NOT_FOUND', 'Demo access is disabled on this deployment.', req.requestId);
+    }
     const input = validateBody(demoSessionSchema, req, res);
     if (!input) return;
     const targetEmail = input.portalType === SELLER_ROLE ? 'seller.demo@agripulse.in' : 'farmer.demo@agripulse.in';
-    let user = getUserByEmail(db, targetEmail) || getUserByEmail(db, publicDemoEmail);
-    if (!user) {
-      try {
-        user = insertUser(db, { id: `demo-${input.portalType}-user`, email: targetEmail, roles: [input.portalType], isDemo: true });
-      } catch (error) {
-        logger.error?.(JSON.stringify({ requestId: req.requestId, operation: 'auth.demo-session', error: error.message }));
-        return apiError(res, 500, 'DEMO_UNAVAILABLE', 'The demo workspace could not be opened.', req.requestId);
-      }
+    const user = getUserByEmail(db, targetEmail);
+    if (!user || !user.isDemo || !user.roles.includes(input.portalType)) {
+      logger.error?.(JSON.stringify({ requestId: req.requestId, operation: 'auth.demo-session', portalType: input.portalType, reason: 'seeded_demo_account_unavailable' }));
+      return apiError(res, 503, 'DEMO_UNAVAILABLE', 'The demo account is not initialized. Run npm run db:setup and try again.', req.requestId);
     }
-    if (!user.isDemo || !user.roles.includes(input.portalType)) {
-      return apiError(res, 409, 'DEMO_UNAVAILABLE', 'The demo workspace is unavailable for that portal.', req.requestId);
-    }
-    seedDevelopmentFarms(db, user);
-    seedDevelopmentDevices(db, user);
     const session = createSession(db, res, user, input.portalType, true, environment);
     storeAuditEvent(db, { actorUserId: user.id, ownerUserId: user.id, action: 'account.demo_session', resourceType: 'session', outcome: 'success', metadata: { portalType: input.portalType } });
     return res.json({ session: toClientSession(db, { ...session, id: user.id, email: user.email }), workspace: readWorkspace(db, user.id) });
-  });
+  };
 
-  app.post('/api/dev/demo-session', (req, res) => {
-    // Demo access is on by default in development, off by default in production; an explicit
-    // ALLOW_DEMO_SESSIONS=true opts a production deployment in (e.g. demo/staging sites), and
-    // ALLOW_DEMO_SESSIONS=false always disables it.
-    const demoFlag = String(environment.ALLOW_DEMO_SESSIONS || '').trim().toLowerCase();
-    const demoEnabled = demoFlag === 'false' ? false : isProduction ? demoFlag === 'true' : true;
-    if (!demoEnabled) {
-      return apiError(res, 404, 'NOT_FOUND', 'This development-only route is disabled.', req.requestId);
-    }
-    const input = validateBody(demoSessionSchema, req, res);
-    if (!input) return;
-    let user = getUserByEmail(db, publicDemoEmail);
-    if (!user) {
-      try {
-        user = insertUser(db, { id: 'demo-workspace-user', email: publicDemoEmail, roles: [FARMER_ROLE, SELLER_ROLE], isDemo: true });
-      } catch (error) {
-        logger.error?.(JSON.stringify({ requestId: req.requestId, operation: 'demo.session', error: error.message }));
-        return apiError(res, 500, 'DEMO_UNAVAILABLE', 'The development demo workspace could not be opened.', req.requestId);
-      }
-    }
-    if (!user.isDemo || !user.roles.includes(input.portalType)) return apiError(res, 409, 'DEMO_UNAVAILABLE', 'The development demo workspace is unavailable.', req.requestId);
-    seedDevelopmentFarms(db, user);
-    seedDevelopmentDevices(db, user);
-    const session = createSession(db, res, user, input.portalType, true, environment);
-    return res.json({ session: toClientSession(db, { ...session, id: user.id, email: user.email }) });
-  });
+  // The legacy path remains as an alias for older demo links. Both paths use the same
+  // role-specific seeded identities and the same production gate; neither shares roles.
+  app.post('/api/auth/demo-session', authLimiter, handleDemoSession);
+  app.post('/api/dev/demo-session', authLimiter, handleDemoSession);
 
   app.get('/api/workspace', requireAuth, (req, res) => res.json(readWorkspace(db, req.auth.id)));
   app.put('/api/workspace', requireAuth, (req, res) => {
@@ -393,7 +329,7 @@ export function createApp({ db, environment = process.env, logger = console } = 
       if (!Number.isInteger(expectedRevision) || expectedRevision < 0) return apiError(res, 400, 'INVALID_REVISION', 'Workspace revision is invalid.', req.requestId);
     } else if (Number.isInteger(body.revision)) expectedRevision = body.revision;
     if (expectedRevision === undefined) return apiError(res, 428, 'REVISION_REQUIRED', 'Reload the workspace and send its revision before saving.', req.requestId);
-    const result = writeWorkspace(db, { id: req.auth.id, isDemo: req.auth.isDemo }, body.data, expectedRevision);
+    const result = writeWorkspace(db, req.auth, body.data, expectedRevision);
     if (!result.ok) return routeError(req, res, result);
     return res.json({ initialized: true, revision: result.revision, updatedAt: result.updatedAt, data: result.data });
   });
