@@ -19,6 +19,7 @@ await build({
     'import.meta.env.PROD': 'false',
     'import.meta.env.MODE': '"test"',
     'import.meta.env.VITE_AI_BACKEND_ENDPOINT': '""',
+    'import.meta.env.VITE_DEMO_MODE': '"true"',
     'import.meta.env.VITE_NEWS_API_ENDPOINT': '""',
     'import.meta.env.VITE_WEATHER_API_URL': '""',
     'import.meta.env.VITE_WEATHER_API_KEY': '""',

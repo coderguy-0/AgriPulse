@@ -69,7 +69,7 @@ interface SiteCase {
 }
 
 const siteCases: SiteCase[] = [
-  { name: 'site home', path: '/', element: <SiteHomePage />, expect: ['Good farming starts', 'Four sensor types.', 'WORKSPACE PREVIEW'] },
+  { name: 'site home', path: '/', element: <SiteHomePage />, expect: ['Know your land.', 'Farmer workspace', 'Thoughtful by design.'] },
   { name: 'platform', path: '/platform', element: <PlatformPage />, expect: ['Module catalog', 'Available in this build'] },
   { name: 'ai capabilities', path: '/ai-capabilities', element: <AiCapabilitiesPage />, expect: ['Understandable intelligence', 'Planned'] },
   { name: 'digital twin', path: '/digital-twin', element: <DigitalTwinPublicPage />, expect: ['A twin built from your records', 'It does not show'] },
