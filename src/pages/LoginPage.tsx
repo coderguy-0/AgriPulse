@@ -28,6 +28,7 @@ export const LoginPage: React.FC = () => {
     loginWithCredentials,
     loginAsSellerDemo,
     loginAsFarmerDemo,
+    workspaceSyncError,
   } = useAgriPulse();
 
   const navigate = useNavigate();
@@ -41,6 +42,7 @@ export const LoginPage: React.FC = () => {
   const [submittingAction, setSubmittingAction] = useState<'credentials' | 'farmer-demo' | 'seller-demo' | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  const visibleError = errorMsg || workspaceSyncError;
 
   // If already logged in, redirect to respective portal
   if (session) {
@@ -327,11 +329,11 @@ export const LoginPage: React.FC = () => {
                 Seller account sign-in
               </div>
 
-              {errorMsg && (
+              {visibleError && (
                 <div className="rounded-xl bg-rose-50 border border-rose-200 p-3.5 flex items-start gap-2.5 text-rose-800 text-xs">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold">Authentication Notice:</span> {errorMsg}
+                    <span className="font-bold">Authentication Notice:</span> {visibleError}
                   </div>
                 </div>
               )}
@@ -416,7 +418,7 @@ export const LoginPage: React.FC = () => {
             <div className="auth-security-note mt-5">
               <ShieldCheck className="w-4 h-4" />
               <p>{DEMO_MODE_ENABLED
-                ? 'Account sign-in uses the AGRIPULSE API. Development demo access uses one-click launchers above; no shared password is embedded in this page.'
+                ? 'Account and demo sign-in use the same AGRIPULSE credential API. Demo launchers submit only the public demo credentials shown above; sessions use HTTP-only cookies.'
                 : 'Sign-in is handled by the AGRIPULSE API. Email verification, password recovery, seller verification, and payout services are not configured here.'}</p>
             </div>
 

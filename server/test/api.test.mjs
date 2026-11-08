@@ -11,6 +11,7 @@ let server;
 let baseUrl;
 let farmerCookie;
 let sellerCookie;
+let otherSellerCookie;
 let farmerSession;
 let sellerSession;
 let farmerWorkspace;
@@ -195,6 +196,64 @@ describe('AGRIPULSE authenticated API', () => {
     assert.equal(rejected.data.error.code, 'SENSITIVE_FIELD_REJECTED');
   });
 
+  it('persists valid seller listings and rejects invalid numbers and manipulated ownership', async () => {
+    const current = await api('/api/workspace', { cookie: sellerCookie });
+    const data = structuredClone(current.data.data);
+    data.products = [{
+      id: 'seller-listing-test-1', sellerId: sellerSession.userId, name: 'Verified test listing',
+      brand: 'Test brand', packSize: '10 kg', category: 'Seeds and planting material',
+      sellerName: 'Green Seed Cooperative Ltd.', pricePaise: 12500, mrpPaise: 15000,
+      stockCount: 12, availability: 'In Stock', isDemoSeller: false, isSampleBrand: false,
+      compatibleCrops: [], seasonTag: 'All Season', isFeatured: false, isPopular: false,
+      isNewArrival: true, shortDescription: 'Test listing', detailedDescription: 'Test listing',
+      usageInstructions: 'Test only', storageInstructions: 'Dry storage', shippingEstimateDays: 'Not connected', imageSvgType: 'seeds-wheat',
+    }];
+    const saved = await api('/api/workspace', { method: 'PUT', cookie: sellerCookie, body: { data, revision: current.data.revision } });
+    assert.equal(saved.response.status, 200, JSON.stringify(saved.data));
+    const reread = await api('/api/workspace', { cookie: sellerCookie });
+    assert.equal(reread.data.data.products[0].id, 'seller-listing-test-1');
+    assert.equal(reread.data.data.products[0].sellerId, sellerSession.userId);
+
+    for (const [patch, code] of [
+      [{ pricePaise: -1 }, 'INVALID_PRODUCT_PRICE'],
+      [{ mrpPaise: 1 }, 'INVALID_PRODUCT_MRP'],
+      [{ stockCount: -5 }, 'INVALID_PRODUCT_STOCK'],
+      [{ sellerId: 'another-seller-user' }, 'LISTING_OWNERSHIP_MISMATCH'],
+    ]) {
+      const invalid = structuredClone(reread.data.data);
+      Object.assign(invalid.products[0], patch);
+      const rejected = await api('/api/workspace', { method: 'PUT', cookie: sellerCookie, body: { data: invalid, revision: reread.data.revision } });
+      assert.equal(rejected.response.status, code === 'LISTING_OWNERSHIP_MISMATCH' ? 403 : 400);
+      assert.equal(rejected.data.error.code, code);
+    }
+
+    const otherSeller = await api('/api/auth/register', {
+      method: 'POST',
+      body: {
+        portalType: 'seller', businessName: 'Independent Other Seller', contactPerson: 'Other Seller',
+        category: 'Seeds', email: 'other.seller@example.test', password: 'other-seller-password-123',
+      },
+    });
+    assert.equal(otherSeller.response.status, 201, JSON.stringify(otherSeller.data));
+    otherSellerCookie = responseCookie(otherSeller.response);
+    const otherRead = await api('/api/workspace', { cookie: otherSellerCookie });
+    assert.equal((otherRead.data.data.products || []).length, 0, 'a second seller must not receive the first seller workspace');
+    const stolenListing = structuredClone(otherRead.data.data);
+    stolenListing.products = [structuredClone(reread.data.data.products[0])];
+    const rejectedCrossSeller = await api('/api/workspace', {
+      method: 'PUT', cookie: otherSellerCookie,
+      body: { data: stolenListing, revision: otherRead.data.revision },
+    });
+    assert.equal(rejectedCrossSeller.response.status, 403);
+    assert.equal(rejectedCrossSeller.data.error.code, 'LISTING_OWNERSHIP_MISMATCH');
+
+    const duplicate = structuredClone(reread.data.data);
+    duplicate.products.push(duplicate.products[0]);
+    const rejectedDuplicate = await api('/api/workspace', { method: 'PUT', cookie: sellerCookie, body: { data: duplicate, revision: reread.data.revision } });
+    assert.equal(rejectedDuplicate.response.status, 400);
+    assert.equal(rejectedDuplicate.data.error.code, 'DUPLICATE_PRODUCT');
+  });
+
   it('registers devices as pending and requires a one-time pairing plus trusted telemetry heartbeat', async () => {
     const farmId = farmerWorkspace.data.farms[0].id;
     const gateway = await api('/api/devices', {
@@ -357,13 +416,72 @@ describe('AGRIPULSE authenticated API', () => {
     assert.equal(legacySensor.response.status, 400);
   });
 
-  it('keeps demo access off by default in production unless explicitly enabled', async () => {
-    const demo = await api('/api/dev/demo-session', { method: 'POST', body: { portalType: 'farmer' } });
-    assert.equal(demo.response.status, 200);
-    assert.equal(demo.data.session.isDemo, true);
+  it('rejects malformed and expired sessions and invalidates sessions on logout', async () => {
+    const malformed = await api('/api/auth/session', { cookie: 'agripulse_session=not-a-real-session-token' });
+    assert.equal(malformed.response.status, 200);
+    assert.equal(malformed.data.session, null);
 
-    // Production is demo-off by default; an explicit ALLOW_DEMO_SESSIONS=true opts a
-    // production deployment in (labelled demo/staging sites); explicit false always wins.
+    const rawSellerToken = decodeURIComponent(sellerCookie.slice('agripulse_session='.length));
+    db.prepare('UPDATE sessions SET expires_at = ? WHERE token_hash = ?')
+      .run(new Date(Date.now() - 1000).toISOString(), sha256(rawSellerToken));
+    const expired = await api('/api/auth/session', { cookie: sellerCookie });
+    assert.equal(expired.response.status, 200);
+    assert.equal(expired.data.session, null);
+    const expiredWorkspace = await api('/api/workspace', { cookie: sellerCookie });
+    assert.equal(expiredWorkspace.response.status, 401);
+
+    const logout = await api('/api/auth/logout', { method: 'POST', cookie: otherSellerCookie });
+    assert.equal(logout.response.status, 200);
+    const afterLogout = await api('/api/auth/session', { cookie: otherSellerCookie });
+    assert.equal(afterLogout.data.session, null);
+    const protectedAfterLogout = await api('/api/workspace', { cookie: otherSellerCookie });
+    assert.equal(protectedAfterLogout.response.status, 401);
+  });
+
+  it('accepts same-origin browser mutations in production and rejects untrusted origins', async () => {
+    const running = await startServer({ NODE_ENV: 'production', ALLOW_DEMO_SESSIONS: 'true' });
+    try {
+      const login = await fetch(`${running.url}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Origin: running.url },
+        body: JSON.stringify({ email: 'farmer.demo@agripulse.in', password: 'AgriPulseDemo!2026', portalType: 'farmer' }),
+      });
+      assert.equal(login.status, 200, await login.text());
+
+      const rejected = await fetch(`${running.url}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Origin: 'https://untrusted.example.test' },
+        body: JSON.stringify({ email: 'farmer.demo@agripulse.in', password: 'AgriPulseDemo!2026', portalType: 'farmer' }),
+      });
+      assert.equal(rejected.status, 403);
+      assert.equal((await rejected.json()).error.code, 'ORIGIN_NOT_ALLOWED');
+    } finally {
+      await new Promise((resolve) => running.httpServer.close(resolve));
+      running.database.close();
+    }
+  });
+
+  it('gates every demo authentication path and seeds distinct role-specific workspaces', async () => {
+    for (const portalType of ['farmer', 'seller']) {
+      for (const path of ['/api/auth/demo-session', '/api/dev/demo-session']) {
+        const demo = await api(path, { method: 'POST', body: { portalType } });
+        assert.equal(demo.response.status, 200, JSON.stringify(demo.data));
+        assert.equal(demo.data.session.isDemo, true);
+        assert.equal(demo.data.session.portalType, portalType);
+        assert.equal(demo.data.session.userId, `demo-${portalType}-user`);
+        assert.deepEqual(demo.data.session.portals, [portalType]);
+        assert.equal(demo.data.workspace.initialized, true);
+      }
+      const credentialLogin = await api('/api/auth/login', {
+        method: 'POST',
+        body: { email: `${portalType}.demo@agripulse.in`, password: 'AgriPulseDemo!2026', portalType },
+      });
+      assert.equal(credentialLogin.response.status, 200, JSON.stringify(credentialLogin.data));
+      assert.equal(credentialLogin.data.session.userId, `demo-${portalType}-user`);
+    }
+
+    // Production is demo-off by default; explicit true opts a demo/staging deployment in,
+    // and explicit false always wins for both passwordless compatibility and credentials.
     const scenarios = [
       [{ NODE_ENV: 'production', WEB_ORIGINS: 'https://app.example.test' }, 404],
       [{ NODE_ENV: 'production', ALLOW_DEMO_SESSIONS: 'true', WEB_ORIGINS: 'https://app.example.test' }, 200],
@@ -372,24 +490,28 @@ describe('AGRIPULSE authenticated API', () => {
     ];
 
     for (const [environment, expected] of scenarios) {
-      const scenarioDb = openDatabase(':memory:');
-      const scenarioServer = createServer(createApp({ db: scenarioDb, environment, logger }));
-      await new Promise((resolve, reject) => {
-        scenarioServer.once('error', reject);
-        scenarioServer.listen(0, '127.0.0.1', resolve);
-      });
-      const { port } = scenarioServer.address();
+      const running = await startServer(environment);
       try {
-        const result = await fetch(`http://127.0.0.1:${port}/api/dev/demo-session`, {
+        for (const path of ['/api/auth/demo-session', '/api/dev/demo-session']) {
+          const result = await fetch(`${running.url}${path}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ portalType: 'farmer' }),
+          });
+          assert.equal(result.status, expected, `${path} with ${JSON.stringify(environment)}`);
+        }
+        const credential = await fetch(`${running.url}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ portalType: 'farmer' }),
+          body: JSON.stringify({ email: 'farmer.demo@agripulse.in', password: 'AgriPulseDemo!2026', portalType: 'farmer' }),
         });
-        assert.equal(result.status, expected);
+        assert.equal(credential.status, expected === 200 ? 200 : 403);
+        if (expected !== 200) assert.equal((await credential.json()).error.code, 'DEMO_DISABLED');
       } finally {
-        await new Promise((resolve) => scenarioServer.close(resolve));
-        scenarioDb.close();
+        await new Promise((resolve) => running.httpServer.close(resolve));
+        running.database.close();
       }
     }
   });
+
 });

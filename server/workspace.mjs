@@ -91,7 +91,45 @@ function validateFarmCollections(payload) {
   return null;
 }
 
-function normalizeWorkspace(payload, isDemo) {
+function validateProductCollection(payload, user) {
+  if (payload.products === undefined) return null;
+  if (!Array.isArray(payload.products)) return { status: 400, code: 'INVALID_PRODUCTS', message: 'Products must be an array.' };
+  if (payload.products.length > 500) return { status: 413, code: 'TOO_MANY_PRODUCTS', message: 'A workspace can contain at most 500 product listings.' };
+  const ids = new Set();
+  for (const product of payload.products) {
+    if (!product || typeof product !== 'object' || typeof product.id !== 'string' || !product.id.trim()) {
+      return { status: 400, code: 'INVALID_PRODUCT', message: 'Every product listing needs a non-empty id.' };
+    }
+    if (ids.has(product.id)) return { status: 400, code: 'DUPLICATE_PRODUCT', message: `Product listing ${product.id} is duplicated.` };
+    ids.add(product.id);
+    for (const field of ['name', 'brand', 'packSize', 'category', 'sellerName']) {
+      if (typeof product[field] !== 'string' || !product[field].trim() || product[field].length > 180) {
+        return { status: 400, code: 'INVALID_PRODUCT', message: `Product ${product.id} needs a valid ${field} of 1–180 characters.` };
+      }
+    }
+    if (!Number.isSafeInteger(product.pricePaise) || product.pricePaise < 0 || product.pricePaise > 1_000_000_000) {
+      return { status: 400, code: 'INVALID_PRODUCT_PRICE', message: `Product ${product.id} needs a nonnegative integer selling price in paise.` };
+    }
+    if (!Number.isSafeInteger(product.mrpPaise) || product.mrpPaise < product.pricePaise || product.mrpPaise > 1_000_000_000) {
+      return { status: 400, code: 'INVALID_PRODUCT_MRP', message: `Product ${product.id} needs an MRP greater than or equal to its selling price.` };
+    }
+    if (!Number.isSafeInteger(product.stockCount) || product.stockCount < 0 || product.stockCount > 1_000_000) {
+      return { status: 400, code: 'INVALID_PRODUCT_STOCK', message: `Product ${product.id} needs an integer stock quantity between 0 and 1000000.` };
+    }
+    if (!['In Stock', 'Low Stock', 'Out of Stock'].includes(product.availability)) {
+      return { status: 400, code: 'INVALID_PRODUCT_AVAILABILITY', message: `Product ${product.id} has an invalid availability status.` };
+    }
+    if (product.stockCount === 0 && product.availability !== 'Out of Stock') {
+      return { status: 400, code: 'INVALID_PRODUCT_AVAILABILITY', message: `Product ${product.id} must be out of stock when its quantity is zero.` };
+    }
+    if (product.sellerId !== undefined && product.sellerId !== user.id) {
+      return { status: 403, code: 'LISTING_OWNERSHIP_MISMATCH', message: 'A listing can only belong to the authenticated seller workspace.' };
+    }
+  }
+  return null;
+}
+
+function normalizeWorkspace(payload, user) {
   const result = { schemaVersion: 1 };
   for (const [key, value] of Object.entries(payload)) {
     if (!WORKSPACE_KEYS.has(key)) continue;
@@ -112,12 +150,17 @@ function normalizeWorkspace(payload, isDemo) {
   result.orders ??= [];
   result.newsBookmarks ??= [];
   result.chatHistory ??= [];
-  if (result.sellerProfile && typeof result.sellerProfile === 'object') {
+  if (result.profile && typeof result.profile === 'object' && !Array.isArray(result.profile)) {
+    result.profile = { ...result.profile, id: user.id, email: user.email || result.profile.email || '' };
+  }
+  if (result.sellerProfile && typeof result.sellerProfile === 'object' && !Array.isArray(result.sellerProfile)) {
     const sellerProfile = { ...result.sellerProfile };
     delete sellerProfile.bankAccountNumber;
     delete sellerProfile.ifscCode;
+    sellerProfile.id = user.id;
+    sellerProfile.email = user.email || sellerProfile.email || '';
     sellerProfile.isVerified = false;
-    sellerProfile.isDemoSeller = Boolean(isDemo);
+    sellerProfile.isDemoSeller = Boolean(user.isDemo);
     result.sellerProfile = sellerProfile;
   }
   return result;
@@ -152,8 +195,10 @@ export function writeWorkspace(db, user, payload, expectedRevision) {
   }
   const collectionError = validateFarmCollections(payload);
   if (collectionError) return { ok: false, status: 400, code: 'INVALID_WORKSPACE', message: collectionError };
+  const productError = validateProductCollection(payload, user);
+  if (productError) return { ok: false, ...productError };
 
-  const data = normalizeWorkspace(payload, user.isDemo);
+  const data = normalizeWorkspace(payload, user);
   const payloadJson = JSON.stringify(data);
   if (Buffer.byteLength(payloadJson, 'utf8') > MAX_WORKSPACE_BYTES) {
     return { ok: false, status: 413, code: 'WORKSPACE_TOO_LARGE', message: 'Workspace data exceeds the 1.2 MB limit.' };

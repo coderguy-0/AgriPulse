@@ -29,7 +29,7 @@ import {
 } from '../context/AgriPulseContext';
 
 export const FarmerLoginPage: React.FC = () => {
-  const { session, loginWithCredentials, loginAsFarmerDemo, loginAsSellerDemo } = useAgriPulse();
+  const { session, loginWithCredentials, loginAsFarmerDemo, loginAsSellerDemo, workspaceSyncError } = useAgriPulse();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -41,6 +41,7 @@ export const FarmerLoginPage: React.FC = () => {
   const [submittingAction, setSubmittingAction] = useState<'credentials' | 'farmer-demo' | 'seller-demo' | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  const visibleError = errorMsg || workspaceSyncError;
 
   // If already logged in, redirect to respective portal
   if (session) {
@@ -315,11 +316,11 @@ export const FarmerLoginPage: React.FC = () => {
                 Farmer account sign-in
               </div>
 
-              {errorMsg && (
+              {visibleError && (
                 <div className="rounded-xl bg-rose-50 border border-rose-200 p-3.5 flex items-start gap-2.5 text-rose-800 text-xs">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold">Sign In Error:</span> {errorMsg}
+                    <span className="font-bold">Sign In Error:</span> {visibleError}
                   </div>
                 </div>
               )}
@@ -402,7 +403,7 @@ export const FarmerLoginPage: React.FC = () => {
             <div className="auth-security-note mt-5">
               <ShieldCheck className="w-4 h-4" />
               <p>{DEMO_MODE_ENABLED
-                ? 'Account sign-in uses the AGRIPULSE API. Development demo access is available through the labelled one-click launcher above; no reusable password is embedded in the site.'
+                ? 'Account and demo sign-in use the same AGRIPULSE credential API. Demo launchers submit only the public demo credentials shown above; sessions use HTTP-only cookies.'
                 : 'Sign-in is handled by the AGRIPULSE API. Email verification and password recovery are not configured here; use a unique password.'}</p>
             </div>
 

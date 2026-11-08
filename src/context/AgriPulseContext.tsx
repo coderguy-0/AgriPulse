@@ -40,9 +40,9 @@ import {
 import { SEED_DICTIONARY_ENTRIES } from '../data/seedDictionary';
 import { SEED_GOVERNMENT_SCHEMES, SEED_NEWS_ARTICLES } from '../data/seedNewsAndSchemes';
 import { VALID_DEMO_PROMO_CODES } from '../data/seedProducts';
-import { authApi, deviceApi, workspaceApi } from '../services/apiClient';
+import { ApiError, authApi, deviceApi, workspaceApi } from '../services/apiClient';
 
-export const DEMO_MODE_ENABLED = import.meta.env.VITE_DEMO_MODE !== 'false';
+export const DEMO_MODE_ENABLED = import.meta.env.DEV || import.meta.env.VITE_DEMO_MODE === 'true';
 export const DEMO_FARMER_EMAIL = 'farmer.demo@agripulse.in';
 export const DEMO_SELLER_EMAIL = 'seller.demo@agripulse.in';
 export const DEMO_PASSWORD = 'AgriPulseDemo!2026';
@@ -82,6 +82,7 @@ interface AgriPulseContextValue {
   workspaceHydrated: boolean;
   workspaceSyncStatus: 'idle' | 'loading' | 'saving' | 'saved' | 'error';
   workspaceSyncError: string | null;
+  retryWorkspaceSync: () => void;
   loginWithCredentials: (
     email: string,
     password: string,
@@ -232,6 +233,7 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
   const [workspaceSyncStatus, setWorkspaceSyncStatus] = useState<'idle' | 'loading' | 'saving' | 'saved' | 'error'>('idle');
   const [workspaceSyncError, setWorkspaceSyncError] = useState<string | null>(null);
+  const [workspaceSaveAttempt, setWorkspaceSaveAttempt] = useState(0);
   const [profile, setProfile] = useState<FarmerProfile>(initialSnapshot.profile);
   const [sellerProfile, setSellerProfile] = useState<SellerProfile>(initialSnapshot.sellerProfile);
   const [farms, setFarms] = useState<Farm[]>(initialSnapshot.farms);
@@ -274,12 +276,12 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [pendingChatPrompt, setPendingChatPrompt] = useState<string | null>(null);
 
-  const makeWorkspacePayload = (): Record<string, unknown> => {
+  const makeWorkspacePayload = (sessionOverride: AuthSession | null = session): Record<string, unknown> => {
     const { bankAccountName: _bankName, bankAccountNumber: _bankNumber, ifscCode: _ifsc, ...safeSellerProfile } = sellerProfile;
     return {
       schemaVersion: 1,
       profile,
-      sellerProfile: { ...safeSellerProfile, isVerified: false, isDemoSeller: Boolean(session?.isDemo) },
+      sellerProfile: { ...safeSellerProfile, isVerified: false, isDemoSeller: Boolean(sessionOverride?.isDemo) },
       farms,
       plots,
       crops,
@@ -392,17 +394,21 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setActiveFarmIdState(preferredFarmId || workspaceList<Farm>(data, 'farms').find((farm) => !farm.isArchived)?.id || '');
   };
 
-  const hydrateWorkspace = async (currentSession: AuthSession, providedWorkspace?: Awaited<ReturnType<typeof workspaceApi.get>>) => {
+  const hydrateWorkspace = async (
+    currentSession: AuthSession,
+    providedWorkspace?: Awaited<ReturnType<typeof workspaceApi.get>>,
+  ): Promise<{ ok: boolean; error?: string }> => {
     const generation = ++hydrationGeneration.current;
+    setWorkspaceHydrated(false);
     setWorkspaceSyncStatus('loading');
     setWorkspaceSyncError(null);
     try {
       let remote = providedWorkspace || await workspaceApi.get();
       if (!remote.initialized) {
-        const initialData = currentSession.isDemo ? makeWorkspacePayload() : makeEmptyWorkspace(currentSession);
+        const initialData = currentSession.isDemo ? makeWorkspacePayload(currentSession) : makeEmptyWorkspace(currentSession);
         remote = await workspaceApi.save(initialData, remote.revision);
       }
-      if (generation !== hydrationGeneration.current) return;
+      if (generation !== hydrationGeneration.current) return { ok: false, error: 'Workspace loading was interrupted. Try again.' };
       workspaceRevisionRef.current = remote.revision;
       applyWorkspace(remote.data, currentSession);
       if (currentSession.portalType === 'farmer') {
@@ -422,18 +428,30 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           if (generation === hydrationGeneration.current) setDevicesLoading(false);
         }
       }
-      if (generation === hydrationGeneration.current) {
-        setWorkspaceHydrated(true);
-        setWorkspaceSyncStatus('saved');
-      }
+      if (generation !== hydrationGeneration.current) return { ok: false, error: 'Workspace loading was interrupted. Try again.' };
+      setWorkspaceHydrated(true);
+      setWorkspaceSyncStatus('saved');
+      return { ok: true };
     } catch (error) {
-      if (generation !== hydrationGeneration.current) return;
+      if (generation !== hydrationGeneration.current) return { ok: false, error: 'Workspace loading was interrupted. Try again.' };
       const message = error instanceof Error ? error.message : 'Unable to load the account workspace.';
       setWorkspaceSyncError(message);
       setWorkspaceSyncStatus('error');
-      if (!currentSession.isDemo) applyWorkspace(makeEmptyWorkspace(currentSession), currentSession);
-      setWorkspaceHydrated(true);
+      setWorkspaceHydrated(false);
+      return { ok: false, error: message };
     }
+  };
+
+  const clearLocalSession = () => {
+    hydrationGeneration.current += 1;
+    setSession(null);
+    setWorkspaceHydrated(false);
+    setWorkspaceSyncStatus('idle');
+    setWorkspaceSyncError(null);
+    setDevices([]);
+    setDeviceEvents([]);
+    setTelemetryCache([]);
+    setIsChatOpen(false);
   };
 
   const refreshDevices = async (currentSession: AuthSession | null = session) => {
@@ -444,7 +462,12 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setDevices(response.devices);
       setDeviceApiError(null);
     } catch (error) {
-      setDeviceApiError(error instanceof Error ? error.message : 'Device API is unavailable.');
+      if (error instanceof ApiError && error.status === 401) {
+        clearLocalSession();
+        setWorkspaceSyncError('Your session expired. Sign in again to continue.');
+      } else {
+        setDeviceApiError(error instanceof Error ? error.message : 'Device API is unavailable.');
+      }
     } finally {
       setDevicesLoading(false);
     }
@@ -454,14 +477,21 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     let mounted = true;
     authApi.session()
       .then(async ({ session: existingSession }) => {
+        if (!mounted || !existingSession) return;
+        const hydrated = await hydrateWorkspace(existingSession);
         if (!mounted) return;
-        if (existingSession) {
+        if (hydrated.ok) {
           setSession(existingSession);
-          await hydrateWorkspace(existingSession);
+        } else {
+          // Do not enter a protected workspace with fallback or another account's data.
+          await authApi.logout().catch(() => undefined);
+          setSession(null);
         }
       })
       .catch((error) => {
         if (mounted) {
+          setSession(null);
+          setWorkspaceHydrated(false);
           setWorkspaceSyncStatus('error');
           setWorkspaceSyncError(error instanceof Error ? error.message : 'Could not reach the AGRIPULSE API.');
         }
@@ -489,13 +519,26 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             setWorkspaceSyncStatus('saved');
             setWorkspaceSyncError(null);
           } catch (error) {
-            setWorkspaceSyncStatus('error');
-            setWorkspaceSyncError(error instanceof Error ? error.message : 'Workspace changes could not be saved.');
+            if (error instanceof ApiError && error.status === 401) {
+              clearLocalSession();
+              setWorkspaceSyncStatus('error');
+              setWorkspaceSyncError('Your session expired. Sign in again to continue.');
+            } else {
+              setWorkspaceSyncStatus('error');
+              setWorkspaceSyncError(error instanceof Error ? error.message : 'Workspace changes could not be saved.');
+            }
           }
         });
     }, 650);
     return () => window.clearTimeout(timer);
-  }, [session, workspaceHydrated, profile, sellerProfile, farms, plots, crops, observations, activities, rainfallLogs, diseaseReports, dictBookmarks, dictRecent, products, cart, wishlist, recentProducts, checkoutDraft, orders, newsBookmarks, chatHistory, activeFarmId]);
+  }, [session, workspaceHydrated, workspaceSaveAttempt, profile, sellerProfile, farms, plots, crops, observations, activities, rainfallLogs, diseaseReports, dictBookmarks, dictRecent, products, cart, wishlist, recentProducts, checkoutDraft, orders, newsBookmarks, chatHistory, activeFarmId]);
+
+  const retryWorkspaceSync = () => {
+    if (!session || !workspaceHydrated) return;
+    setWorkspaceSyncError(null);
+    setWorkspaceSyncStatus('saving');
+    setWorkspaceSaveAttempt((attempt) => attempt + 1);
+  };
 
   // Sync activeFarmId if farms list changes
   useEffect(() => {
@@ -511,6 +554,22 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     [farms, activeFarmId]
   );
 
+  const activateAuthenticatedWorkspace = async (
+    currentSession: AuthSession,
+    workspace: Awaited<ReturnType<typeof workspaceApi.get>>,
+  ): Promise<string | null> => {
+    const hydrated = await hydrateWorkspace(currentSession, workspace);
+    if (!hydrated.ok) {
+      await authApi.logout().catch(() => undefined);
+      setSession(null);
+      setSessionLoading(false);
+      return hydrated.error || 'The account workspace could not be loaded. Try again.';
+    }
+    setSession(currentSession);
+    setSessionLoading(false);
+    return null;
+  };
+
   const loginWithCredentials = async (
     email: string,
     password: string,
@@ -519,11 +578,11 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   ): Promise<{ ok: boolean; portal: PortalType; error?: string }> => {
     try {
       const response = await authApi.login({ email, password, rememberMe, portalType: intendedPortal });
-      setSession(response.session);
-      setSessionLoading(false);
-      await hydrateWorkspace(response.session, response.workspace);
+      const activationError = await activateAuthenticatedWorkspace(response.session, response.workspace);
+      if (activationError) return { ok: false, portal: intendedPortal, error: activationError };
       return { ok: true, portal: response.session.portalType || intendedPortal };
     } catch (error) {
+      setSessionLoading(false);
       return {
         ok: false,
         portal: intendedPortal,
@@ -532,43 +591,21 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  const openDemoPortal = async (portal: PortalType): Promise<{ ok: boolean; portal: PortalType; error?: string }> => {
-    if (!DEMO_MODE_ENABLED) return { ok: false, portal, error: 'Development demo access is disabled in this environment.' };
-    try {
-      const response = await authApi.demoSession(portal);
-      setSession(response.session);
-      setSessionLoading(false);
-      await hydrateWorkspace(response.session);
-      return { ok: true, portal };
-    } catch (error) {
-      return {
-        ok: false,
-        portal,
-        error: error instanceof Error ? error.message : 'Could not open the development demo workspace.',
-      };
-    }
-  };
+  // Demo launchers use the same verified credential endpoint as the sign-in form. They do
+  // not create a client-side role, bypass the server, or use a shared multi-role identity.
+  const loginAsSellerDemo = (): Promise<{ ok: boolean; portal: PortalType; error?: string }> =>
+    loginWithCredentials(DEMO_SELLER_EMAIL, DEMO_PASSWORD, true, 'seller');
 
-  const loginAsSellerDemo = async (): Promise<{ ok: boolean; portal: PortalType; error?: string }> => {
-    const demoRes = await openDemoPortal('seller');
-    if (demoRes.ok) return demoRes;
-    return loginWithCredentials(DEMO_SELLER_EMAIL, DEMO_PASSWORD, true, 'seller');
-  };
-
-  const loginAsFarmerDemo = async (): Promise<{ ok: boolean; portal: PortalType; error?: string }> => {
-    const demoRes = await openDemoPortal('farmer');
-    if (demoRes.ok) return demoRes;
-    return loginWithCredentials(DEMO_FARMER_EMAIL, DEMO_PASSWORD, true, 'farmer');
-  };
+  const loginAsFarmerDemo = (): Promise<{ ok: boolean; portal: PortalType; error?: string }> =>
+    loginWithCredentials(DEMO_FARMER_EMAIL, DEMO_PASSWORD, true, 'farmer');
 
   const registerSeller = async (sellerData: SellerRegistrationRequest): Promise<{ ok: boolean; error?: string }> => {
     try {
       const response = await authApi.register({ portalType: 'seller', ...sellerData });
-      setSession(response.session);
-      setSessionLoading(false);
-      await hydrateWorkspace(response.session, response.workspace);
-      return { ok: true };
+      const activationError = await activateAuthenticatedWorkspace(response.session, response.workspace);
+      return activationError ? { ok: false, error: activationError } : { ok: true };
     } catch (error) {
+      setSessionLoading(false);
       return { ok: false, error: error instanceof Error ? error.message : 'Seller account creation failed.' };
     }
   };
@@ -576,11 +613,10 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const registerFarmer = async (farmerData: FarmerRegistrationRequest): Promise<{ ok: boolean; error?: string }> => {
     try {
       const response = await authApi.register({ portalType: 'farmer', ...farmerData });
-      setSession(response.session);
-      setSessionLoading(false);
-      await hydrateWorkspace(response.session, response.workspace);
-      return { ok: true };
+      const activationError = await activateAuthenticatedWorkspace(response.session, response.workspace);
+      return activationError ? { ok: false, error: activationError } : { ok: true };
     } catch (error) {
+      setSessionLoading(false);
       return { ok: false, error: error instanceof Error ? error.message : 'Farmer account creation failed.' };
     }
   };
@@ -594,21 +630,27 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (target === 'farmer') await refreshDevices(response.session);
       return true;
     } catch (error) {
-      setWorkspaceSyncError(error instanceof Error ? error.message : 'This account cannot switch to that portal.');
+      if (error instanceof ApiError && error.status === 401) {
+        clearLocalSession();
+        setWorkspaceSyncError('Your session expired. Sign in again to continue.');
+      } else {
+        setWorkspaceSyncError(error instanceof Error ? error.message : 'This account cannot switch to that portal.');
+      }
       return false;
     }
   };
 
   const logout = async (): Promise<void> => {
-    setSession(null);
-    setWorkspaceHydrated(false);
-    setWorkspaceSyncStatus('idle');
-    setWorkspaceSyncError(null);
-    setDevices([]);
-    setDeviceEvents([]);
-    setTelemetryCache([]);
-    setIsChatOpen(false);
-    try { await authApi.logout(); } catch { /* The server session expires even if a local logout request cannot reach it. */ }
+    try {
+      await authApi.logout();
+      clearLocalSession();
+    } catch (error) {
+      // The HTTP-only cookie can only be invalidated by the server. Keep the current
+      // session visible and offer a retry instead of claiming a local-only logout worked.
+      setWorkspaceSyncStatus('error');
+      setWorkspaceSyncError('Sign out could not reach the server. Your session is still active; reconnect and try again.');
+      throw error;
+    }
   };
 
   // Profile & Logo
@@ -640,7 +682,7 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const addProduct = (prod: Omit<StoreProduct, 'id'>): StoreProduct => {
     const newProduct: StoreProduct = {
       ...prod,
-      id: `prod-${Date.now()}`,
+      id: `prod-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`}`,
     };
     const next = [newProduct, ...products];
     setProducts(next);
@@ -1267,6 +1309,7 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     workspaceHydrated,
     workspaceSyncStatus,
     workspaceSyncError,
+    retryWorkspaceSync,
     loginWithCredentials,
     loginAsSellerDemo,
     loginAsFarmerDemo,

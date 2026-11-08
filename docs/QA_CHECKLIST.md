@@ -6,9 +6,9 @@ you can reproduce. Commands are run from the repository root.
 Reproduce everything at once:
 
 ```bash
-npm install
+npm ci
 npm run lint && npm run test:all && npm run build
-npm run dev          # http://localhost:3000  (public site)  /api on :4000
+npm run dev          # unified public site + /api on http://localhost:3000
 ```
 
 ## Verification results at the time of writing
@@ -16,10 +16,13 @@ npm run dev          # http://localhost:3000  (public site)  /api on :4000
 | Check | Command | Result |
 |---|---|---|
 | TypeScript + server syntax | `npm run lint` | pass, no diagnostics |
-| API tests | `npm test` | 6 tests / 6 pass / 0 fail |
-| Field-intelligence unit tests | `npm run test:web` | 20 tests / 20 pass / 0 fail |
+| API, authorization, migration and demo-seed tests | `npm test` | 16 tests / 16 pass / 0 fail |
+| Field-intelligence unit tests | `npm run test:web` | 22 tests / 22 pass / 0 fail |
 | Render smoke test (public pages, portal modules, loader markup + navigation audits) | `npm run test:render` | 46 checks passed |
-| Production bundle | `npm run build` | pass, entry chunk 90.03 kB gzip |
+| Production bundle | `VITE_DEMO_MODE=true npm run build` | pass |
+| Responsive browser smoke | `npm run test:browser` | 61 checks passed; zero page errors |
+| Auth, role and persistence browser smoke | `npm run test:auth-browser` | 15 checks passed |
+| Deep console/network route audit | `node scripts/deepSmoke.mjs` | zero findings |
 
 ---
 

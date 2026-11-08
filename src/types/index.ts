@@ -45,6 +45,7 @@ export interface AuthSession {
   sellerName?: string;
   role?: UserRole;
   portalType?: PortalType;
+  portals?: PortalType[];
   isDemo: boolean;
   rememberMe: boolean;
   loggedInAt: string;
@@ -564,6 +565,7 @@ export interface StoreProduct {
   mrpPaise: number;
   stockCount: number;
   availability: 'In Stock' | 'Low Stock' | 'Out of Stock';
+  sellerId?: string;
   sellerName: string;
   isDemoSeller: boolean;
   compatibleCrops: string[];

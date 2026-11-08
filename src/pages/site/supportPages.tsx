@@ -67,7 +67,7 @@ const FAQ_GROUPS: { title: string; icon: React.ReactNode; items: { question: str
       {
         question: 'Is the weather data live?',
         answer:
-          'It depends on configuration. If no weather endpoint is configured on the server, the portal shows a clearly labelled sample forecast and names the source as a demo fallback.',
+          'It depends on configuration. If no weather provider is configured on the server, live weather is unavailable. Only demo users can explicitly choose a clearly labelled sample forecast; it is never presented as live data.',
       },
     ],
   },

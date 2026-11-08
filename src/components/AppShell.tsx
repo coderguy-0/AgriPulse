@@ -129,6 +129,7 @@ export const AppShell: React.FC = () => {
     switchPortal,
     workspaceSyncStatus,
     workspaceSyncError,
+    retryWorkspaceSync,
     profile,
     logout,
     weather,
@@ -260,11 +261,15 @@ export const AppShell: React.FC = () => {
     return results.slice(0, 6);
   }, [quickSearch, products, dictionary]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setProfileMenuOpen(false);
     setMobileDrawerOpen(false);
-    logout();
-    navigate('/login', { replace: true });
+    try {
+      await logout();
+      navigate('/farmer/login', { replace: true });
+    } catch {
+      // The context keeps the session active and displays a server-logout error.
+    }
   };
 
   const todayFormatted = new Date().toLocaleDateString('en-IN', {
@@ -337,8 +342,8 @@ export const AppShell: React.FC = () => {
             {cartItemCount > 0 && <span className="app-nav-count is-cart">{cartItemCount}</span>}
           </NavLink>
 
-          {/* Demo accounts can switch portals; production accounts need an assigned role. */}
-          {session?.isDemo && <button
+          {/* Only sessions with an API-authorized seller role can switch portals. */}
+          {session?.portals?.includes('seller') && <button
             type="button"
             onClick={async () => { if (await switchPortal('seller')) navigate('/seller'); }}
             className="app-seller-switch w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition my-2"
@@ -501,8 +506,8 @@ export const AppShell: React.FC = () => {
                 </span>
               </div>
 
-              {/* Demo-only portal switch; the API enforces production account roles. */}
-              {session?.isDemo && <button
+              {/* Role-aware portal switch; the API enforces account roles. */}
+              {session?.portals?.includes('seller') && <button
                 type="button"
                 onClick={async () => { if (await switchPortal('seller')) navigate('/seller'); }}
                 className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-forest-950 hover:bg-forest-900 text-emerald-300 hover:text-white border border-forest-800 text-xs font-bold transition shadow-xs"
@@ -734,8 +739,9 @@ export const AppShell: React.FC = () => {
         )}
 
         {workspaceSyncError ? (
-          <div role="alert" className="mx-4 mt-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-2.5 text-xs font-semibold text-rose-900 sm:mx-6 lg:mx-8">
-            Workspace changes could not be saved: {workspaceSyncError}
+          <div role="alert" className="mx-4 mt-3 flex items-center justify-between gap-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-2.5 text-xs font-semibold text-rose-900 sm:mx-6 lg:mx-8">
+            <span>Workspace changes could not be saved: {workspaceSyncError}</span>
+            <button type="button" onClick={retryWorkspaceSync} className="shrink-0 rounded-lg border border-rose-300 bg-white px-2.5 py-1 text-rose-900 hover:bg-rose-100">Retry save</button>
           </div>
         ) : workspaceSyncStatus === 'saving' ? (
           <div role="status" className="mx-4 mt-3 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-900 sm:mx-6 lg:mx-8">

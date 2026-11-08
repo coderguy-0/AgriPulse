@@ -296,8 +296,8 @@ export const AlertsPage: React.FC = () => {
               visible as commissioning reminders. The interface cannot mark a device online.
             </Accordion>
             <Accordion question="Weather advisories">
-              Sourced from the configured weather provider and labelled as forecast. With no provider configured, AGRIPULSE shows
-              a clearly labelled sample forecast rather than implying live weather.
+              Sourced from the configured weather provider and labelled as forecast. With no provider configured, live weather
+              is unavailable; only demo users can explicitly choose a clearly labelled sample forecast.
             </Accordion>
             <Accordion question="Task and inspection reminders">
               Created from your own farm activities and saved symptom reports, including follow-ups when an observation has not

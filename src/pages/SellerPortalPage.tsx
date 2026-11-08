@@ -18,7 +18,7 @@ import {
   FileText,
   Printer,
   X,
-  ExternalLink,
+  Edit2,
   ChevronRight,
   ShieldCheck,
   Star,
@@ -84,6 +84,7 @@ export const SellerPortalPage: React.FC = () => {
     session,
     workspaceSyncStatus,
     workspaceSyncError,
+    retryWorkspaceSync,
     sellerProfile,
     updateSellerProfile,
     products,
@@ -109,6 +110,8 @@ export const SellerPortalPage: React.FC = () => {
 
   // Add Product Modal State
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<StoreProduct | null>(null);
+  const [productFormError, setProductFormError] = useState<string | null>(null);
   const [newProdName, setNewProdName] = useState('');
   const [newProdCategory, setNewProdCategory] = useState<ProductCategory>('Seeds and planting material');
   const [newProdBrand, setNewProdBrand] = useState(sellerProfile.businessName || 'Your business brand');
@@ -130,17 +133,18 @@ export const SellerPortalPage: React.FC = () => {
     if (mobileNavOpen) mobileDrawerCloseButtonRef.current?.focus();
   }, [mobileNavOpen]);
 
-  // A listing belongs to this seller when its seller name carries the business name.
-  // An empty business name (fresh account) must never match every product, and the
-  // Karnal sample listings only belong to the development demo workspace.
+  // New listings carry an immutable account id. Legacy demo listings use an exact
+  // business-name fallback; an empty or partial name never grants editing controls.
   const businessName = sellerProfile.businessName.trim().toLowerCase();
+  const canSwitchToFarmer = Boolean(session?.portals?.includes('farmer'));
   const isSellerListing = (product: StoreProduct) => {
+    if (product.sellerId) return product.sellerId === session?.userId;
     const sellerName = product.sellerName.toLowerCase();
     if (session?.isDemo) {
       if (sellerName.includes('karnal')) return true;
       if (product.seller?.name?.toLowerCase().includes('karnal')) return true;
     }
-    return businessName.length > 0 && sellerName.includes(businessName);
+    return businessName.length > 0 && (sellerName === businessName || sellerName === `${businessName} (demo seller)`);
   };
 
   // Filtered Products
@@ -163,7 +167,7 @@ export const SellerPortalPage: React.FC = () => {
       }
       return true;
     });
-  }, [products, catalogFilter, catalogCategory, catalogSearch, businessName, session?.isDemo]);
+  }, [products, catalogFilter, catalogCategory, catalogSearch, businessName, session?.isDemo, session?.userId]);
 
   // Orders statistics
   const pendingOrdersCount = useMemo(
@@ -178,7 +182,7 @@ export const SellerPortalPage: React.FC = () => {
 
   const myListedProductsCount = useMemo(() => {
     return products.filter((p) => isSellerListing(p)).length;
-  }, [products, businessName, session?.isDemo]);
+  }, [products, businessName, session?.isDemo, session?.userId]);
 
   const filteredOrders = useMemo(() => {
     if (orderStatusFilter === 'All') return orders;
@@ -239,57 +243,139 @@ export const SellerPortalPage: React.FC = () => {
     window.requestAnimationFrame(() => mobileMenuButtonRef.current?.focus());
   };
 
-  const handleLogout = () => {
-    void logout();
-    navigate('/login', { replace: true });
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login', { replace: true });
+    } catch {
+      // The context keeps the session active and displays a server-logout error.
+    }
   };
 
-  const handleCreateProduct = (e: React.FormEvent) => {
+  const closeProductModal = () => {
+    setShowAddModal(false);
+    setEditingProduct(null);
+    setProductFormError(null);
+  };
+
+  const openAddProduct = () => {
+    setEditingProduct(null);
+    setProductFormError(null);
+    setNewProdName('');
+    setNewProdCategory('Seeds and planting material');
+    setNewProdBrand(sellerProfile.businessName);
+    setNewProdPackSize('40 kg Bag');
+    setNewProdPriceRs('1450');
+    setNewProdMrpRs('1650');
+    setNewProdStock('50');
+    setNewProdShortDesc('');
+    setNewProdUsage('');
+    setNewProdSvgType('seeds-wheat');
+    setShowAddModal(true);
+  };
+
+  const openEditProduct = (product: StoreProduct) => {
+    if (!isSellerListing(product)) return;
+    setEditingProduct(product);
+    setProductFormError(null);
+    setNewProdName(product.name);
+    setNewProdCategory(product.category);
+    setNewProdBrand(product.brand);
+    setNewProdPackSize(product.packSize);
+    setNewProdPriceRs((product.pricePaise / 100).toString());
+    setNewProdMrpRs((product.mrpPaise / 100).toString());
+    setNewProdStock(product.stockCount.toString());
+    setNewProdShortDesc(product.shortDescription);
+    setNewProdUsage(product.usageInstructions);
+    setNewProdSvgType(product.imageSvgType);
+    setShowAddModal(true);
+  };
+
+  const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newProdName.trim()) return;
+    setProductFormError(null);
+    if (!session || session.portalType !== 'seller') {
+      setProductFormError('Your seller session is not active. Sign in again before changing listings.');
+      return;
+    }
+    if (newProdName.trim().length < 2 || newProdName.trim().length > 180) {
+      setProductFormError('Enter a product name between 2 and 180 characters.');
+      return;
+    }
+    if (!newProdBrand.trim() || !newProdPackSize.trim()) {
+      setProductFormError('Brand name and pack size are required.');
+      return;
+    }
+    const moneyPattern = /^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/;
+    if (!moneyPattern.test(newProdPriceRs.trim()) || !moneyPattern.test(newProdMrpRs.trim())) {
+      setProductFormError('Enter prices in rupees with no more than two decimal places.');
+      return;
+    }
+    const pricePaise = Math.round(Number(newProdPriceRs) * 100);
+    const mrpPaise = Math.round(Number(newProdMrpRs) * 100);
+    if (!Number.isSafeInteger(pricePaise) || pricePaise <= 0 || pricePaise > 1_000_000_000) {
+      setProductFormError('Selling price must be greater than zero and no more than ₹1,00,00,000.');
+      return;
+    }
+    if (!Number.isSafeInteger(mrpPaise) || mrpPaise < pricePaise || mrpPaise > 1_000_000_000) {
+      setProductFormError('MRP must be greater than or equal to the selling price.');
+      return;
+    }
+    if (!/^(?:0|[1-9]\d*)$/.test(newProdStock.trim())) {
+      setProductFormError('Stock quantity must be a nonnegative whole number.');
+      return;
+    }
+    const stockCount = Number(newProdStock);
+    if (!Number.isSafeInteger(stockCount) || stockCount < 0 || stockCount > 1_000_000) {
+      setProductFormError('Stock quantity must be between 0 and 1,000,000 units.');
+      return;
+    }
 
-    const pricePaise = Math.round(parseFloat(newProdPriceRs || '0') * 100);
-    const mrpPaise = Math.round(parseFloat(newProdMrpRs || '0') * 100);
-    const stockCount = parseInt(newProdStock || '10', 10);
-
-    addProduct({
+    const editableFields = {
       name: newProdName.trim(),
       category: newProdCategory,
       brand: newProdBrand.trim(),
-      isSampleBrand: Boolean(session?.isDemo),
       packSize: newProdPackSize.trim(),
       pricePaise,
       mrpPaise,
       stockCount,
-      availability: stockCount > 0 ? 'In Stock' : 'Out of Stock',
-      sellerName: session?.isDemo ? `${sellerProfile.businessName} (Demo Seller)` : sellerProfile.businessName,
-      isDemoSeller: Boolean(session?.isDemo),
-      compatibleCrops: ['Wheat (गेहूं)', 'Rice / Paddy (धान)', 'Mustard (सरसों)', 'Vegetables'],
-      seasonTag: 'All Season',
-      shortDescription:
-        newProdShortDesc.trim() ||
-        (session?.isDemo
-          ? `Demo listing for ${newProdName.trim()} from ${sellerProfile.businessName}. Certification and quality are not verified.`
-          : `Seller draft for ${newProdName.trim()} from ${sellerProfile.businessName}. Product claims and certifications have not been verified.`),
-      detailedDescription:
-        newProdShortDesc.trim() ||
-        (session?.isDemo
-          ? 'Illustrative sample copy only. No warehouse, product testing, or certification is verified.'
-          : 'Seller-provided draft copy. Product claims and certifications must be verified before publication.'),
-      usageInstructions:
-        newProdUsage.trim() || 'Follow recommended agronomic package of practices for optimal crop emergence.',
-      storageInstructions: 'Store in a dry, rodent-safe godown on raised wooden pallets.',
-      shippingEstimateDays: session?.isDemo ? 'Estimated 2–4 days (Demo Delivery)' : 'Shipping provider not connected',
+      availability: (stockCount === 0 ? 'Out of Stock' : stockCount <= 10 ? 'Low Stock' : 'In Stock') as StoreProduct['availability'],
+      shortDescription: newProdShortDesc.trim() || `Seller-provided workspace listing for ${newProdName.trim()}; claims are not independently verified.`,
+      usageInstructions: newProdUsage.trim() || 'Follow the product label and local agronomic guidance.',
       imageSvgType: newProdSvgType,
-      isFeatured: false,
-      isPopular: true,
-      isNewArrival: true,
-      rating: 0,
-      reviewCount: 0,
-    });
+    };
 
-    setShowAddModal(false);
-    // Reset inputs
+    if (editingProduct) {
+      if (!isSellerListing(editingProduct)) {
+        setProductFormError('This marketplace listing is read-only in your seller workspace.');
+        return;
+      }
+      updateProduct({
+        ...editingProduct,
+        ...editableFields,
+        sellerId: editingProduct.sellerId || session.userId,
+      });
+    } else {
+      addProduct({
+        ...editableFields,
+        isSampleBrand: Boolean(session.isDemo),
+        sellerId: session.userId,
+        sellerName: session.isDemo ? `${sellerProfile.businessName} (Demo Seller)` : sellerProfile.businessName,
+        isDemoSeller: Boolean(session.isDemo),
+        compatibleCrops: ['Wheat (गेहूं)', 'Rice / Paddy (धान)', 'Mustard (सरसों)', 'Vegetables'],
+        seasonTag: 'All Season',
+        detailedDescription: newProdShortDesc.trim() || 'Seller-provided workspace copy. Product claims and certifications have not been verified.',
+        storageInstructions: 'Store according to the product label in a dry, secure location.',
+        shippingEstimateDays: session.isDemo ? 'Estimated 2–4 days (Demo Delivery)' : 'Shipping provider not connected',
+        isFeatured: false,
+        isPopular: false,
+        isNewArrival: true,
+        rating: 0,
+        reviewCount: 0,
+      });
+    }
+
+    closeProductModal();
     setNewProdName('');
     setNewProdShortDesc('');
     setNewProdUsage('');
@@ -297,24 +383,32 @@ export const SellerPortalPage: React.FC = () => {
 
   const handleQuickStock = (productId: string, delta: number) => {
     const prod = products.find((p) => p.id === productId);
-    if (!prod) return;
+    if (!prod || !isSellerListing(prod)) return;
     const newStock = Math.max(0, prod.stockCount + delta);
     updateProduct({
       ...prod,
       stockCount: newStock,
-      availability: newStock > 0 ? 'In Stock' : 'Out of Stock',
+      availability: newStock === 0 ? 'Out of Stock' : newStock <= 10 ? 'Low Stock' : 'In Stock',
     });
   };
 
   const handleToggleStock = (productId: string) => {
     const prod = products.find((p) => p.id === productId);
-    if (!prod) return;
-    const isOut = prod.availability === 'Out of Stock';
+    if (!prod || !isSellerListing(prod)) return;
+    const isOut = prod.availability === 'Out of Stock' || prod.stockCount === 0;
+    const newStock = isOut ? Math.max(10, prod.stockCount) : 0;
     updateProduct({
       ...prod,
-      availability: isOut ? 'In Stock' : 'Out of Stock',
-      stockCount: isOut ? Math.max(10, prod.stockCount) : 0,
+      availability: newStock === 0 ? 'Out of Stock' : newStock <= 10 ? 'Low Stock' : 'In Stock',
+      stockCount: newStock,
     });
+  };
+
+  const handleDeleteProduct = (product: StoreProduct) => {
+    if (!isSellerListing(product)) return;
+    if (window.confirm(`Delete “${product.name}” from this seller workspace? This cannot be undone.`)) {
+      deleteProduct(product.id);
+    }
   };
 
   return (
@@ -397,7 +491,7 @@ export const SellerPortalPage: React.FC = () => {
                   <span className="hidden md:inline">Development Demo Workspace</span>
                 </span>
               )}
-              {session?.isDemo && (
+              {canSwitchToFarmer && (
                 <div className="hidden items-center gap-2 lg:flex">
                   <button
                     type="button"
@@ -438,7 +532,8 @@ export const SellerPortalPage: React.FC = () => {
         <main className="app-content flex-1 px-4 sm:px-6 lg:px-8 max-w-[1440px] w-full mx-auto space-y-6">
         <div role={workspaceSyncError ? 'alert' : 'status'} className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs ${workspaceSyncError ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-emerald-200 bg-emerald-50 text-emerald-900'}`}>
           {workspaceSyncStatus === 'saving' && <AgriPulseLoader size="sm" />}
-          <span>{workspaceSyncError ? `Workspace sync issue: ${workspaceSyncError}` : workspaceSyncStatus === 'saving' ? 'Saving changes to your authenticated AGRIPULSE workspace…' : workspaceSyncStatus === 'error' ? 'Workspace save failed. Changes may not be stored.' : workspaceSyncStatus === 'saved' ? `${session?.isDemo ? 'Development demo' : 'Account'} workspace synced to the AGRIPULSE API.` : 'Connecting to the AGRIPULSE workspace…'}</span>
+          <span className="flex-1">{workspaceSyncError ? `Workspace sync issue: ${workspaceSyncError}` : workspaceSyncStatus === 'saving' ? 'Saving changes to your authenticated AGRIPULSE workspace…' : workspaceSyncStatus === 'error' ? 'Workspace save failed. Changes may not be stored.' : workspaceSyncStatus === 'saved' ? `${session?.isDemo ? 'Development demo' : 'Account'} workspace synced to the AGRIPULSE API.` : 'Connecting to the AGRIPULSE workspace…'}</span>
+          {workspaceSyncError && <button type="button" onClick={retryWorkspaceSync} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-rose-300 bg-white px-2.5 py-1 font-semibold text-rose-900 hover:bg-rose-100"><RefreshCw className="h-3 w-3" /> Retry save</button>}
         </div>
         {/* Verification & Seller Callout Banner */}
         <div className="rounded-2xl bg-white border border-slate-200 p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -469,7 +564,7 @@ export const SellerPortalPage: React.FC = () => {
             </div>
             <button
               type="button"
-              onClick={() => setShowAddModal(true)}
+              onClick={openAddProduct}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition"
             >
               <Plus className="w-4 h-4" />
@@ -707,7 +802,7 @@ export const SellerPortalPage: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(true)}
+                  onClick={openAddProduct}
                   className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition whitespace-nowrap"
                 >
                   <Plus className="w-4 h-4" />
@@ -775,59 +870,75 @@ export const SellerPortalPage: React.FC = () => {
                             >
                               {prod.stockCount} units
                             </span>
-                            <div className="inline-flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleQuickStock(prod.id, -5)}
-                                title="Decrease stock by 5"
-                                className="w-5 h-5 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold flex items-center justify-center text-[10px]"
-                              >
-                                -5
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleQuickStock(prod.id, 5)}
-                                title="Increase stock by 5"
-                                className="w-5 h-5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold flex items-center justify-center text-[10px]"
-                              >
-                                +5
-                              </button>
-                            </div>
+                            {isSellerListing(prod) && (
+                              <div className="inline-flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickStock(prod.id, -5)}
+                                  title="Decrease stock by 5"
+                                  aria-label={`Decrease stock for ${prod.name} by 5`}
+                                  className="w-5 h-5 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold flex items-center justify-center text-[10px]"
+                                >
+                                  -5
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickStock(prod.id, 5)}
+                                  title="Increase stock by 5"
+                                  aria-label={`Increase stock for ${prod.name} by 5`}
+                                  className="w-5 h-5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold flex items-center justify-center text-[10px]"
+                                >
+                                  +5
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </td>
                         <td className="py-3.5 px-4">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleStock(prod.id)}
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition ${
-                              prod.availability === 'In Stock' && prod.stockCount > 0
-                                ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                                : 'bg-rose-100 text-rose-800 hover:bg-rose-200'
-                            }`}
-                          >
-                            {prod.availability === 'In Stock' && prod.stockCount > 0
-                              ? '● In Stock'
-                              : '○ Out of Stock'}
-                          </button>
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Link
-                              to={`/store/product/${prod.id}`}
-                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600"
-                              title="View Product Page in Store"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </Link>
+                          {isSellerListing(prod) ? (
                             <button
                               type="button"
-                              onClick={() => deleteProduct(prod.id)}
-                              className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600"
-                              title="Delete Product from Store"
+                              onClick={() => handleToggleStock(prod.id)}
+                              title={prod.stockCount === 0 ? 'Restock this listing' : 'Mark this listing out of stock'}
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition ${
+                                prod.stockCount > 0
+                                  ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                  : 'bg-rose-100 text-rose-800 hover:bg-rose-200'
+                              }`}
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              {prod.stockCount === 0 ? '○ Out of Stock' : prod.availability === 'Low Stock' ? '● Low Stock' : '● In Stock'}
                             </button>
-                          </div>
+                          ) : (
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${prod.stockCount > 0 ? 'bg-slate-100 text-slate-700' : 'bg-rose-50 text-rose-700'}`}>
+                              {prod.stockCount === 0 ? 'Out of Stock' : prod.availability}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          {isSellerListing(prod) ? (
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => openEditProduct(prod)}
+                                className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700"
+                                title="Edit workspace listing"
+                                aria-label={`Edit ${prod.name}`}
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteProduct(prod)}
+                                className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600"
+                                title="Delete workspace listing"
+                                aria-label={`Delete ${prod.name}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] font-medium text-slate-500">Read-only marketplace listing</span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1238,7 +1349,7 @@ export const SellerPortalPage: React.FC = () => {
               {renderNavigationGroups(true)}
             </nav>
 
-            {session?.isDemo && (
+            {canSwitchToFarmer && (
               <div className="space-y-2 border-t border-forest-800 p-3">
                 <button
                   type="button"
@@ -1310,27 +1421,30 @@ export const SellerPortalPage: React.FC = () => {
       {/* ADD PRODUCT MODAL */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden my-8">
+          <div role="dialog" aria-modal="true" aria-labelledby="product-modal-title" className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden my-8">
             <div className="bg-forest-950 text-white p-5 flex items-center justify-between">
               <div>
-                <h3 className="text-base font-bold flex items-center gap-2">
+                <h3 id="product-modal-title" className="text-base font-bold flex items-center gap-2">
                   <Plus className="w-4 h-4 text-emerald-400" />
-                  Add New Product to Store Catalog
+                  {editingProduct ? 'Edit Workspace Product Listing' : 'Add New Product to Workspace Catalog'}
                 </h3>
                 <p className="text-xs text-forest-300 mt-0.5">
-                  This product will be instantly visible in the Farmer Marketplace
+                  {editingProduct ? 'Changes are saved to this account workspace after server sync.' : 'This saves to your account workspace; it does not publish to a live Farmer Marketplace.'}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setShowAddModal(false)}
+                onClick={closeProductModal}
+                aria-label="Close product listing form"
                 className="p-1 rounded-lg hover:bg-forest-800 text-forest-300 hover:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateProduct} className="p-6 space-y-4 text-xs">
+            <form onSubmit={handleSaveProduct} className="p-6 space-y-4 text-xs">
+              {productFormError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 font-semibold text-rose-800">{productFormError}</div>}
+              <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600">The listing is published only to your saved workspace after the sync indicator confirms success. It is not a live customer-facing marketplace integration.</p>
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
                   Product Name <span className="text-rose-500">*</span>
@@ -1338,6 +1452,8 @@ export const SellerPortalPage: React.FC = () => {
                 <input
                   type="text"
                   required
+                  minLength={2}
+                  maxLength={180}
                   value={newProdName}
                   onChange={(e) => setNewProdName(e.target.value)}
                   placeholder="e.g., Pusa Tejas Foundation Wheat Seed Lot"
@@ -1364,6 +1480,8 @@ export const SellerPortalPage: React.FC = () => {
                   <label className="block font-semibold text-slate-700 mb-1">Brand Name</label>
                   <input
                     type="text"
+                    required
+                    maxLength={180}
                     value={newProdBrand}
                     onChange={(e) => setNewProdBrand(e.target.value)}
                     placeholder="e.g., Karnal Kisan Agro (Co-op)"
@@ -1374,6 +1492,8 @@ export const SellerPortalPage: React.FC = () => {
                   <label className="block font-semibold text-slate-700 mb-1">Pack Size / Unit</label>
                   <input
                     type="text"
+                    required
+                    maxLength={180}
                     value={newProdPackSize}
                     onChange={(e) => setNewProdPackSize(e.target.value)}
                     placeholder="e.g., 40 kg Bag, 1 Litre Bottle"
@@ -1384,6 +1504,10 @@ export const SellerPortalPage: React.FC = () => {
                   <label className="block font-semibold text-slate-700 mb-1">Stock Quantity (Units)</label>
                   <input
                     type="number"
+                    required
+                    min={0}
+                    max={1000000}
+                    step={1}
                     value={newProdStock}
                     onChange={(e) => setNewProdStock(e.target.value)}
                     placeholder="50"
@@ -1394,6 +1518,10 @@ export const SellerPortalPage: React.FC = () => {
                   <label className="block font-semibold text-slate-700 mb-1">Selling Price (₹)</label>
                   <input
                     type="number"
+                    required
+                    min={0.01}
+                    max={10000000}
+                    step={0.01}
                     value={newProdPriceRs}
                     onChange={(e) => setNewProdPriceRs(e.target.value)}
                     placeholder="1450"
@@ -1404,6 +1532,10 @@ export const SellerPortalPage: React.FC = () => {
                   <label className="block font-semibold text-slate-700 mb-1">MRP (₹)</label>
                   <input
                     type="number"
+                    required
+                    min={0.01}
+                    max={10000000}
+                    step={0.01}
                     value={newProdMrpRs}
                     onChange={(e) => setNewProdMrpRs(e.target.value)}
                     placeholder="1650"
@@ -1441,7 +1573,7 @@ export const SellerPortalPage: React.FC = () => {
               <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={closeProductModal}
                   className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 transition"
                 >
                   Cancel
@@ -1450,7 +1582,7 @@ export const SellerPortalPage: React.FC = () => {
                   type="submit"
                   className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm transition"
                 >
-                  Publish Product Listing
+                  {editingProduct ? 'Save Listing Changes' : 'Save Product Listing'}
                 </button>
               </div>
             </form>
