@@ -89,7 +89,7 @@ export const AccountSettingsPage: React.FC = () => {
       },
     });
 
-    setSavedBanner('Profile and preferences updated. The authenticated workspace is syncing to the AGRIPULSE API.');
+    setSavedBanner('Profile and preferences updated. The workspace is saving your changes.');
     setTimeout(() => setSavedBanner(null), 4000);
   };
 
@@ -406,7 +406,7 @@ export const AccountSettingsPage: React.FC = () => {
               <p className="text-[11px] leading-relaxed">
                 {session?.isDemo
                   ? 'Farm, profile, observation and sample commerce changes sync to this development server’s SQLite workspace. This is not a production service or a verified agricultural record. Device metadata, pairing events and telemetry are stored separately by the authenticated API; sample devices do not prove physical installation.'
-                  : 'Farm, profile, observation and workspace commerce changes sync to the authenticated AGRIPULSE API. This development deployment uses local SQLite persistence, not a managed production database. Device metadata, pairing events and physical telemetry are stored separately and are never kept in browser storage.'}{' '}
+                  : 'Farm, profile, observation and workspace commerce changes sync to the authenticated AGRIPULSE workspace. A hosted deployment keeps them in SQLite behind the API, not a managed production database; when no API is reachable they are stored only in this browser. Device metadata, pairing events and physical telemetry are stored separately and are never kept in browser storage.'}{' '}
                 Browser storage is development-only and may contain non-sensitive drafts or cached demo UI data. Never enter network passwords, provisioning tokens, SIM PINs, private keys, bank credentials, or real payment details. Weather forecasts and crop-health content are not a substitute for professional advice.
               </p>
             </div>

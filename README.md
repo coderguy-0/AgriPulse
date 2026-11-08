@@ -27,8 +27,10 @@ include the redesigned agricultural home, approved four-sensor registration, cal
 and retry-safe telemetry, standalone gateway heartbeat, server-side weather integration,
 production AI unavailable states, privacy/terms notices and responsive Chromium checks.
 Weather requires server-only `WEATHER_PROVIDER=weatherapi` and `WEATHER_API_KEY`; do not put
-provider secrets in browser `VITE_*` variables. New converted soil-moisture/NPK payloads now
-require documented calibration. See the revised [device contract](docs/DEVICE_API_CONTRACTS.md).
+provider secrets in browser `VITE_*` variables. Deployments without the Node API now run in a
+labelled browser-local standalone mode instead of failing at sign-in with a 404 (see "Deploying").
+New converted soil-moisture/NPK payloads now require documented calibration. See the revised
+[device contract](docs/DEVICE_API_CONTRACTS.md).
 
 ## What the platform does
 
@@ -197,17 +199,38 @@ NODE_ENV=production node server.mjs
   
   The shipped `render.yaml` blueprint sets both.
 
-### What will NOT work: static-only hosts
+### Static-only hosts (Vercel, Netlify, GitHub Pages)
 
-- **Vercel / Netlify / GitHub Pages (static):** `vercel.json` rewrites every route to
-  `index.html`, so only the *public marketing pages* render. Every `/api/*` call receives HTML
-  instead of JSON — the farmer/seller portals, login, devices and live monitoring do not function.
-  A file-backed SQLite database is also not durable on serverless runtimes. Making the full app
-  run on such a host requires re-architecting the API as serverless functions with a managed
-  database; that has not been done.
-- If a static deploy shows a **blank white page**, the host is serving the wrong directory
-  (the source `index.html` instead of `dist/`) or the wrong asset base path (GitHub Pages needs
-  `base: '/<repo>/'` in `vite.config.ts`).
+A static host cannot run the Express API, so `/api/*` is answered by the host itself. AGRIPULSE
+detects this on startup (one `/api/health` probe) and switches to **standalone mode** instead of
+failing:
+
+- the public website, both demo launchers, credential sign-in, account creation, every portal module,
+  the store, cart and device registry keep working exactly as designed;
+- accounts, sessions, workspaces and device records are kept in **this browser's local storage** and
+  are never uploaded anywhere;
+- a labelled notice in the portal and on both sign-in screens says so, and offers a re-check button
+  that switches back to the API the moment it becomes reachable;
+- nothing is invented: live weather and physical telemetry stay unavailable, and registered devices
+  stay "pending pairing" with no readings — the same honesty rules as the hosted build.
+
+Deploying a static build therefore gives a fully explorable demo, not the API-backed product. Data
+does not sync between browsers or devices, clearing site data erases it, and there is no real
+authentication. For the real thing, use a Node host (Render blueprint above).
+
+Deep links work on every static host: `vercel.json` rewrites to `index.html`, `public/_redirects`
+covers Netlify/Cloudflare Pages, and GitHub Pages needs `base: '/<repo>/'` in `vite.config.ts`
+(and `404.html` handling, which the host does not provide automatically). If a static deploy shows a
+**blank white page**, the host is serving the wrong directory (the source `index.html` instead of
+`dist/`).
+
+### Verifying both deployment shapes
+
+```bash
+npm run build
+node scripts/standaloneSmoke.mjs   # static host, no API: demo login, all modules, reload, signup
+node scripts/serverModeSmoke.mjs   # production server: API answers JSON, no standalone fallback
+```
 
 ## Before any production deployment
 

@@ -44,6 +44,8 @@ export interface AuthSession {
   farmerName?: string;
   sellerName?: string;
   role?: UserRole;
+  /** Every portal this account may open. Drives the portal switcher and local-mode authorization. */
+  roles?: PortalType[];
   portalType?: PortalType;
   isDemo: boolean;
   rememberMe: boolean;

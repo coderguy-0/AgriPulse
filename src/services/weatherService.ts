@@ -1,5 +1,6 @@
 import { SEED_WEATHER_SNAPSHOT } from '../data/seedFarmData';
 import { WeatherSnapshot } from '../types';
+import { isStandaloneMode } from './apiClient';
 
 export const INDIAN_AGRICULTURAL_LOCATIONS: {
   state: string;
@@ -76,8 +77,17 @@ export async function fetchWeatherForLocation(
   options?: { simulateFailure?: boolean }
 ): Promise<WeatherServiceResult> {
   if (options?.simulateFailure) throw new Error('Weather service unavailable. No replacement forecast was generated.');
+  if (isStandaloneMode()) {
+    // No API, so no provider is configured: fail closed and let the caller offer the labelled
+    // demonstration forecast instead of inventing live weather.
+    throw new Error('Live weather needs the AGRIPULSE API and a configured provider. This deployment has no API, so no live forecast is available.');
+  }
   const query = new URLSearchParams({ state, district });
   const response = await fetch(`/api/weather?${query}`, { credentials: 'include', signal: AbortSignal.timeout(12_000) });
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error('The AGRIPULSE API did not answer this weather request, so no live forecast is available.');
+  }
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.error?.message || 'Weather is unavailable. Please try again later.');
   return { snapshot: payload.snapshot as WeatherSnapshot, isLive: true };

@@ -27,9 +27,10 @@ import {
   DEMO_SELLER_EMAIL,
   DEMO_PASSWORD,
 } from '../context/AgriPulseContext';
+import { DataModeBanner } from '../components/DataModeBanner';
 
 export const FarmerLoginPage: React.FC = () => {
-  const { session, loginWithCredentials, loginAsFarmerDemo, loginAsSellerDemo } = useAgriPulse();
+  const { session, dataMode, loginWithCredentials, loginAsFarmerDemo, loginAsSellerDemo } = useAgriPulse();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -160,6 +161,8 @@ export const FarmerLoginPage: React.FC = () => {
           </Link>
         </div>
       </header>
+
+      <DataModeBanner compact />
 
       {/* Main Split Layout */}
       <main className="farmer-login-main login-main max-w-6xl mx-auto w-full px-4 py-8 sm:py-10 flex-1 grid grid-cols-1 lg:grid-cols-2 items-stretch gap-6 lg:gap-8">
@@ -320,18 +323,27 @@ export const FarmerLoginPage: React.FC = () => {
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                   <div>
                     <span className="font-bold">Sign In Error:</span> {errorMsg}
+                    {dataMode === 'standalone' && (
+                      <p className="mt-1 text-rose-700">
+                        This deployment has no AGRIPULSE API, so use the one-click demo launchers above or
+                        create an account — both work from this browser alone.
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-forest-900 mb-1">
+                <label htmlFor="farmer-email" className="block text-xs font-semibold text-forest-900 mb-1">
                   Farmer Email Address
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-forest-400 absolute left-3.5 top-3 pointer-events-none" />
                   <input
+                    id="farmer-email"
+                    name="email"
                     type="email"
+                    autoComplete="email"
                     required
                     value={email}
                     onChange={(e) => {
@@ -348,11 +360,14 @@ export const FarmerLoginPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-forest-900 mb-1">Password</label>
+                <label htmlFor="farmer-password" className="block text-xs font-semibold text-forest-900 mb-1">Password</label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-forest-400 absolute left-3.5 top-3 pointer-events-none" />
                   <input
+                    id="farmer-password"
+                    name="password"
                     type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
                     required
                     value={password}
                     onChange={(e) => {
@@ -402,8 +417,8 @@ export const FarmerLoginPage: React.FC = () => {
             <div className="auth-security-note mt-5">
               <ShieldCheck className="w-4 h-4" />
               <p>{DEMO_MODE_ENABLED
-                ? 'Account sign-in uses the AGRIPULSE API. Development demo access is available through the labelled one-click launcher above; no reusable password is embedded in the site.'
-                : 'Sign-in is handled by the AGRIPULSE API. Email verification and password recovery are not configured here; use a unique password.'}</p>
+                ? 'Sign-in uses the AGRIPULSE API when it is reachable; otherwise this browser keeps the account locally. Demo access is available through the labelled one-click launchers above. Email verification and password recovery are not configured; use a unique password.'
+                : 'Sign-in uses the AGRIPULSE API when it is reachable, otherwise this browser keeps the account locally. Email verification and password recovery are not configured; use a unique password.'}</p>
             </div>
 
             {/* Bottom Links */}

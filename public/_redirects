@@ -1,2 +1,4 @@
+# Netlify/Cloudflare Pages: /api/* is passed through untouched so a real API is never shadowed.
 /api/*   /api/:splat   200
+# Every other address is a client-side route served by the SPA document.
 /*       /index.html   200

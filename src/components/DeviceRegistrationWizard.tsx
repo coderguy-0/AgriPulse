@@ -252,7 +252,7 @@ export const DeviceRegistrationWizard: React.FC<DeviceRegistrationWizardProps> =
             <div className="min-w-0">
               <p className="device-eyebrow">Devices & IoT · {isDemo ? 'Development demo' : 'Authenticated account'}</p>
               <h2 id="device-wizard-title">Register a device</h2>
-              <p className="device-wizard-subtitle">Device metadata is saved by the AGRIPULSE API. Hardware stays pending until secure pairing and a trusted heartbeat.</p>
+              <p className="device-wizard-subtitle">Device metadata is saved to your workspace. Hardware stays pending until secure pairing and a trusted heartbeat.</p>
             </div>
           </div>
           <button type="button" className="device-icon-button" onClick={onClose} aria-label="Close registration">
