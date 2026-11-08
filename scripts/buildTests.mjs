@@ -8,12 +8,14 @@ import { mkdirSync } from 'node:fs';
 mkdirSync('.smoke/tests', { recursive: true });
 
 await build({
-  entryPoints: ['scripts/intelligence.test.ts'],
+  entryPoints: ['scripts/intelligence.test.ts', 'scripts/standaloneStore.test.ts'],
   bundle: true,
   platform: 'node',
   format: 'cjs',
   target: 'node22',
-  outfile: '.smoke/tests/intelligence.test.cjs',
+  outdir: '.smoke/tests',
+  entryNames: '[name]',
+  outExtension: { '.js': '.cjs' },
   loader: { '.ts': 'ts', '.tsx': 'tsx' },
   external: ['node:test', 'node:assert/strict'],
   define: {

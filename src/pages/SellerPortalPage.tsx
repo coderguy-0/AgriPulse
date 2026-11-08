@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { AgriPulseLogo } from '../components/AgriPulseLogo';
 import { AgriPulseLoader } from '../components/AgriPulseLoader';
+import { DataModeBanner } from '../components/DataModeBanner';
 import { useAgriPulse } from '../context/AgriPulseContext';
 import { DemoOrder, OrderStatus, ProductCategory, StoreProduct } from '../types';
 
@@ -436,9 +437,10 @@ export const SellerPortalPage: React.FC = () => {
         </header>
 
         <main className="app-content flex-1 px-4 sm:px-6 lg:px-8 max-w-[1440px] w-full mx-auto space-y-6">
+        <DataModeBanner />
         <div role={workspaceSyncError ? 'alert' : 'status'} className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs ${workspaceSyncError ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-emerald-200 bg-emerald-50 text-emerald-900'}`}>
           {workspaceSyncStatus === 'saving' && <AgriPulseLoader size="sm" />}
-          <span>{workspaceSyncError ? `Workspace sync issue: ${workspaceSyncError}` : workspaceSyncStatus === 'saving' ? 'Saving changes to your authenticated AGRIPULSE workspace…' : workspaceSyncStatus === 'error' ? 'Workspace save failed. Changes may not be stored.' : workspaceSyncStatus === 'saved' ? `${session?.isDemo ? 'Development demo' : 'Account'} workspace synced to the AGRIPULSE API.` : 'Connecting to the AGRIPULSE workspace…'}</span>
+          <span>{workspaceSyncError ? `Workspace sync issue: ${workspaceSyncError}` : workspaceSyncStatus === 'saving' ? 'Saving changes to your authenticated AGRIPULSE workspace…' : workspaceSyncStatus === 'error' ? 'Workspace save failed. Changes may not be stored.' : workspaceSyncStatus === 'saved' ? `${session?.isDemo ? 'Demo' : 'Account'} workspace changes saved.` : 'Connecting to the AGRIPULSE workspace…'}</span>
         </div>
         {/* Verification & Seller Callout Banner */}
         <div className="rounded-2xl bg-white border border-slate-200 p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">

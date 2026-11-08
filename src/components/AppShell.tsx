@@ -48,6 +48,7 @@ import { AgriPulseLoader } from './AgriPulseLoader';
 const FloatingAIChat = lazy(() => import('./FloatingAIChat').then((m) => ({ default: m.FloatingAIChat })));
 import { useAgriPulse } from '../context/AgriPulseContext';
 import { useFarmTelemetry } from '../hooks/useFarmTelemetry';
+import { DataModeBanner } from './DataModeBanner';
 import { buildAlerts, buildZoneSnapshots, AlertItem } from '../services/fieldIntelligence';
 import { describeFreshness, formatTimestamp } from '../services/provenance';
 
@@ -726,10 +727,12 @@ export const AppShell: React.FC = () => {
           </div>
         )}
 
+        <DataModeBanner />
+
         {session?.isDemo && (
           <div className="demo-workspace-banner" role="status">
             <AlertTriangle className="demo-workspace-icon" aria-hidden="true" />
-            <p><strong>Development demo · sample workspace.</strong> Demo data is saved by this local development API and is not a production account. Device records do not prove physical pairing or telemetry. Do not enter sensitive personal, financial, network, or device credentials.</p>
+            <p><strong>Sample demo workspace.</strong> Demo data is saved for this workspace only and is not a production account. Device records do not prove physical pairing or telemetry. Do not enter sensitive personal, financial, network, or device credentials.</p>
           </div>
         )}
 
@@ -740,7 +743,7 @@ export const AppShell: React.FC = () => {
         ) : workspaceSyncStatus === 'saving' ? (
           <div role="status" className="mx-4 mt-3 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-900 sm:mx-6 lg:mx-8">
             <AgriPulseLoader size="sm" />
-            <span>Saving workspace changes to the AGRIPULSE API…</span>
+            <span>Saving workspace changes…</span>
           </div>
         ) : null}
 

@@ -40,7 +40,16 @@ import {
 import { SEED_DICTIONARY_ENTRIES } from '../data/seedDictionary';
 import { SEED_GOVERNMENT_SCHEMES, SEED_NEWS_ARTICLES } from '../data/seedNewsAndSchemes';
 import { VALID_DEMO_PROMO_CODES } from '../data/seedProducts';
-import { authApi, deviceApi, workspaceApi } from '../services/apiClient';
+import {
+  ApiError,
+  authApi,
+  detectApiMode,
+  deviceApi,
+  getApiMode,
+  isStandaloneMode,
+  workspaceApi,
+  type ApiMode,
+} from '../services/apiClient';
 
 export const DEMO_MODE_ENABLED = import.meta.env.VITE_DEMO_MODE !== 'false';
 export const DEMO_FARMER_EMAIL = 'farmer.demo@agripulse.in';
@@ -79,6 +88,13 @@ interface AgriPulseContextValue {
   // Auth
   session: AuthSession | null;
   sessionLoading: boolean;
+  /**
+   * 'server' = authenticated against the AGRIPULSE API; 'standalone' = the API is not reachable
+   * from this address, so the workspace runs from this browser's local storage.
+   */
+  dataMode: ApiMode;
+  apiReachable: boolean;
+  retryApiConnection: () => Promise<boolean>;
   workspaceHydrated: boolean;
   workspaceSyncStatus: 'idle' | 'loading' | 'saving' | 'saved' | 'error';
   workspaceSyncError: string | null;
@@ -229,6 +245,8 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [session, setSession] = useState<AuthSession | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
+  const [dataMode, setDataMode] = useState<ApiMode>(() => getApiMode());
+  const [apiReachable, setApiReachable] = useState(() => getApiMode() === 'server');
   const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
   const [workspaceSyncStatus, setWorkspaceSyncStatus] = useState<'idle' | 'loading' | 'saving' | 'saved' | 'error'>('idle');
   const [workspaceSyncError, setWorkspaceSyncError] = useState<string | null>(null);
@@ -450,30 +468,98 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  /**
+   * Session bootstrap.
+   *
+   * The API is probed before anything else. On a static-only host every `/api/*` request is answered
+   * by the host's SPA fallback — which is what produced "The request failed with status 404" at
+   * sign-in — so those requests are skipped entirely and the app starts in standalone mode instead
+   * of failing. When the API is reachable it remains the single source of truth.
+   */
   useEffect(() => {
     let mounted = true;
-    authApi.session()
-      .then(async ({ session: existingSession }) => {
+    const bootstrap = async () => {
+      // One probe decides where the workspace lives. On a static host this answers instantly with
+      // the host's fallback page, so nothing else waits on a request that cannot succeed.
+      const mode = await detectApiMode();
+      if (!mounted) return;
+      setDataMode(mode);
+      setApiReachable(mode === 'server');
+
+      if (mode === 'standalone') {
+        // Local records are the only source in standalone mode; a stale API error would be noise.
+        setWorkspaceSyncError(null);
+        setWorkspaceSyncStatus('idle');
+        // Restore this browser's standalone session so a reload does not sign the user out.
+        const local = authApi.localSession();
+        if (local.session) {
+          setSession(local.session);
+          await hydrateWorkspace(local.session);
+        }
+        return;
+      }
+
+      try {
+        const { session: existingSession } = await authApi.session();
         if (!mounted) return;
         if (existingSession) {
           setSession(existingSession);
           await hydrateWorkspace(existingSession);
         }
-      })
-      .catch((error) => {
-        if (mounted) {
-          setWorkspaceSyncStatus('error');
-          setWorkspaceSyncError(error instanceof Error ? error.message : 'Could not reach the AGRIPULSE API.');
+      } catch (error) {
+        if (!mounted) return;
+        if (error instanceof ApiError && (error.code === 'API_UNAVAILABLE' || error.status === 0)) {
+          // The API disappeared between the probe and this call: fall back to standalone cleanly.
+          const confirmed = await detectApiMode(true);
+          if (!mounted) return;
+          setDataMode(confirmed);
+          setApiReachable(confirmed === 'server');
+          if (confirmed === 'standalone') {
+            setWorkspaceSyncStatus('idle');
+            setWorkspaceSyncError(null);
+            const local = authApi.localSession();
+            if (local.session) {
+              setSession(local.session);
+              await hydrateWorkspace(local.session);
+            }
+            return;
+          }
         }
-      })
-      .finally(() => {
-        if (mounted) setSessionLoading(false);
-      });
+        setWorkspaceSyncStatus('error');
+        setWorkspaceSyncError(error instanceof Error ? error.message : 'Could not reach the AGRIPULSE API.');
+      }
+    };
+
+    bootstrap().finally(() => {
+      if (mounted) setSessionLoading(false);
+    });
+
     return () => {
       mounted = false;
       hydrationGeneration.current += 1;
     };
   }, []);
+
+  /**
+   * Re-probes the API (used after a failed request or from the UI banner). A successful probe
+   * reloads the session and workspace so the user lands in the hosted workspace without a reload.
+   */
+  const retryApiConnection = async (): Promise<boolean> => {
+    const mode = await detectApiMode(true);
+    setDataMode(mode);
+    setApiReachable(mode === 'server');
+    if (mode !== 'server') return false;
+    try {
+      const { session: existingSession } = await authApi.session();
+      if (existingSession) {
+        setSession(existingSession);
+        await hydrateWorkspace(existingSession);
+      }
+    } catch {
+      return false;
+    }
+    return true;
+  };
 
   useEffect(() => {
     if (!session || !workspaceHydrated) return;
@@ -519,6 +605,8 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   ): Promise<{ ok: boolean; portal: PortalType; error?: string }> => {
     try {
       const response = await authApi.login({ email, password, rememberMe, portalType: intendedPortal });
+      setDataMode(getApiMode());
+      setApiReachable(getApiMode() === 'server');
       setSession(response.session);
       setSessionLoading(false);
       await hydrateWorkspace(response.session, response.workspace);
@@ -536,6 +624,8 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!DEMO_MODE_ENABLED) return { ok: false, portal, error: 'Development demo access is disabled in this environment.' };
     try {
       const response = await authApi.demoSession(portal);
+      setDataMode(getApiMode());
+      setApiReachable(getApiMode() === 'server');
       setSession(response.session);
       setSessionLoading(false);
       await hydrateWorkspace(response.session);
@@ -564,6 +654,8 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const registerSeller = async (sellerData: SellerRegistrationRequest): Promise<{ ok: boolean; error?: string }> => {
     try {
       const response = await authApi.register({ portalType: 'seller', ...sellerData });
+      setDataMode(getApiMode());
+      setApiReachable(getApiMode() === 'server');
       setSession(response.session);
       setSessionLoading(false);
       await hydrateWorkspace(response.session, response.workspace);
@@ -576,6 +668,8 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const registerFarmer = async (farmerData: FarmerRegistrationRequest): Promise<{ ok: boolean; error?: string }> => {
     try {
       const response = await authApi.register({ portalType: 'farmer', ...farmerData });
+      setDataMode(getApiMode());
+      setApiReachable(getApiMode() === 'server');
       setSession(response.session);
       setSessionLoading(false);
       await hydrateWorkspace(response.session, response.workspace);
@@ -1264,6 +1358,9 @@ export const AgriPulseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const value: AgriPulseContextValue = {
     session,
     sessionLoading,
+    dataMode,
+    apiReachable,
+    retryApiConnection,
     workspaceHydrated,
     workspaceSyncStatus,
     workspaceSyncError,

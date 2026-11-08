@@ -21,10 +21,12 @@ import {
 import { AgriPulseLogo } from '../components/AgriPulseLogo';
 import { AgriPulseLoader } from '../components/AgriPulseLoader';
 import { useAgriPulse, DEMO_MODE_ENABLED, DEMO_FARMER_EMAIL, DEMO_SELLER_EMAIL, DEMO_PASSWORD } from '../context/AgriPulseContext';
+import { DataModeBanner } from '../components/DataModeBanner';
 
 export const LoginPage: React.FC = () => {
   const {
     session,
+    dataMode,
     loginWithCredentials,
     loginAsSellerDemo,
     loginAsFarmerDemo,
@@ -161,6 +163,8 @@ export const LoginPage: React.FC = () => {
       </header>
 
       {/* Main Split Section */}
+      <DataModeBanner compact />
+
       <main className="login-main max-w-6xl mx-auto w-full px-4 py-8 sm:py-10 flex-1 grid grid-cols-1 lg:grid-cols-2 items-stretch gap-6 lg:gap-8">
         {/* Left Hero Card */}
         <div className="login-story space-y-6">
@@ -331,19 +335,28 @@ export const LoginPage: React.FC = () => {
                 <div className="rounded-xl bg-rose-50 border border-rose-200 p-3.5 flex items-start gap-2.5 text-rose-800 text-xs">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold">Authentication Notice:</span> {errorMsg}
+                    <span className="font-bold">Sign In Error:</span> {errorMsg}
+                    {dataMode === 'standalone' && (
+                      <p className="mt-1 text-rose-700">
+                        This deployment has no AGRIPULSE API, so use the one-click demo launchers above or
+                        create an account — both work from this browser alone.
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="seller-email" className="block text-xs font-semibold text-slate-700 mb-1">
                   Business / Seller Email Address
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
                   <input
+                    id="seller-email"
+                    name="email"
                     type="email"
+                    autoComplete="email"
                     required
                     value={email}
                     onChange={(e) => {
@@ -360,13 +373,16 @@ export const LoginPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="seller-password" className="block text-xs font-semibold text-slate-700 mb-1">
                   Portal Password
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
                   <input
+                    id="seller-password"
+                    name="password"
                     type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
                     required
                     value={password}
                     onChange={(e) => {
@@ -416,8 +432,8 @@ export const LoginPage: React.FC = () => {
             <div className="auth-security-note mt-5">
               <ShieldCheck className="w-4 h-4" />
               <p>{DEMO_MODE_ENABLED
-                ? 'Account sign-in uses the AGRIPULSE API. Development demo access uses one-click launchers above; no shared password is embedded in this page.'
-                : 'Sign-in is handled by the AGRIPULSE API. Email verification, password recovery, seller verification, and payout services are not configured here.'}</p>
+                ? 'Sign-in uses the AGRIPULSE API when it is reachable; otherwise this browser keeps the account locally. Demo access uses the one-click launchers above. Email verification, password recovery, seller verification and payout services are not configured.'
+                : 'Sign-in uses the AGRIPULSE API when it is reachable, otherwise this browser keeps the account locally. Email verification, password recovery, seller verification and payout services are not configured.'}</p>
             </div>
 
             {/* Bottom Links */}
